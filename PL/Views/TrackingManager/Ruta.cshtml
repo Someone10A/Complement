@@ -1,0 +1,220 @@
+﻿@model List<ML.TrackingManager.TrackingManager>
+
+@{
+    ViewData["Title"] = "Detalle de Ruta";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <div class="d-flex justify-content-between align-items-center mb-3 mt-2">
+        <h2 class="fw-bold mb-0 text-primary">
+            <i class="bi bi-truck"></i> Detalle de Ruta
+        </h2>
+        <a class="btn btn-outline-secondary d-flex align-items-center gap-2"
+           href="@Url.Action("GetTrackingPerDay", "TrackingManager", new { fecha = ViewBag.FechaSeleccionada })">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    @if (Model != null && Model.Count > 0)
+    {
+        <div class="mb-3">
+            <h5 class="fw-semibold text-secondary">
+                <i class="bi bi-map"></i> Ruta:
+                <span class="text-dark">@Model.First().car_sal</span>
+            </h5>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(ViewBag.Error as string))
+    {
+        <div class="alert alert-danger shadow-sm">
+            <i class="bi bi-exclamation-triangle"></i> @ViewBag.Error
+        </div>
+    }
+
+    @if (Model != null && Model.Count > 0)
+    {
+        foreach (var item in Model)
+        {
+            var color = item.rt_stat == "1" || item.rt_stat == "4"
+            ? "bg-success"
+            : item.rt_stat == "X"
+            ? "bg-danger"
+            : "bg-warning";
+
+            <div class="card-container">
+                <div class="card @color">
+                    <div class="card-content">
+                        <div class="row gx-2 gy-1 mb-1">
+                            <div class="col-md-9">
+                                <h4 class="card-title mb-0">Cliente: @item.cliente</h4>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <p class="mb-0 small text-muted">@item.fec_act</p>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="row gx-2 gy-1 align-items-start">
+                            <div class="col-md-9">
+                                <div class="row gx-2 gy-1 mb-1">
+                                    <div class="col-sm-6">
+                                        <p class="mb-0"><strong>SCN:</strong> @item.num_scn</p>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <p class="mb-0"><strong>Orden:</strong> @item.ord_rel</p>
+                                    </div>
+                                </div>
+                                <div class="row gx-2 gy-1 mb-1">
+                                    <div class="col-sm-6">
+                                        <p class="mb-0"><strong>Estatus GNX:</strong> @item.estado @item.estado_gnx</p>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <p class="mb-0"><strong>Estado Entrega:</strong> @item.estatus @item.estatus_ord_rel</p>
+                                    </div>
+                                </div>
+                                <div class="row gx-2 gy-1">
+                                    <div class="col-sm-6">
+                                        <p class="mb-0"><strong>Estatus RT:</strong> @item.rt_stat @item.estado_rt</p>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <p class="mb-0"><strong>Evento:</strong> @item.cod_mot @item.motivo</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <button type="button" class="btn btn-primary btn-lg w-100"
+                                        onclick="mostrarDetalle('@item.ord_rel')">
+                                    <i class="bi bi-info-circle"></i> Detalle
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="alert alert-info mt-3">
+            <i class="bi bi-info-circle"></i> No se encontraron órdenes para la carga seleccionada.
+        </div>
+    }
+</div>
+
+
+<div class="modal fade" id="detalleModal" tabindex="-1" aria-labelledby="detalleModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detalleModalLabel">Detalle de Orden</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="modalDetalleContent">
+                <div class="text-center">
+                    <span class="spinner-border" role="status"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+
+        .card-container {
+            width: 96%;
+            margin: 0 auto 1rem auto;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        .card {
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease-in-out;
+            background: #fff;
+            min-height: 150px;
+        }
+
+            .card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+            }
+
+        .card-content {
+            padding: 1.2rem 1.5rem;
+            color: #212529;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .card hr {
+            opacity: 0.15;
+        }
+
+        .bg-success {
+            background: linear-gradient(135deg, #d1e7dd, #badbcc) !important;
+            border-left: 6px solid #198754;
+            color: #0f5132 !important;
+        }
+
+        .bg-warning {
+            background: linear-gradient(135deg, #fff3cd, #ffecb5) !important;
+            border-left: 6px solid #ffca2c;
+            color: #664d03 !important;
+        }
+
+        .bg-danger {
+            background: linear-gradient(135deg, #f8d7da, #f5c2c7) !important;
+            border-left: 6px solid #dc3545;
+            color: #58151c !important;
+        }
+
+        .btn-primary {
+            border-radius: 0.7rem;
+            transition: all 0.2s ease-in-out;
+        }
+
+            .btn-primary:hover {
+                opacity: 0.9;
+                transform: scale(1.03);
+            }
+
+        @@keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        function mostrarDetalle(ord_rel) {
+            $('#detalleModal').modal('show');
+            $('#modalDetalleContent').html('<div class="text-center"><span class="spinner-border" role="status"></span></div>');
+
+            $.ajax({
+                type: "POST",
+                url: '@Url.Action("GetDetail", "TrackingManager")',
+                data: { ord_rel: ord_rel },
+                success: function (data) {
+                    $('#modalDetalleContent').html(data);
+                },
+                error: function () {
+                    $('#modalDetalleContent').html('<div class="alert alert-danger">Error al obtener detalles.</div>');
+                }
+            });
+        }
+    </script>
+}

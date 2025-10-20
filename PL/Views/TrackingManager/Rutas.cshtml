@@ -1,0 +1,259 @@
+﻿@model object
+@{
+    ViewData["Title"] = "Rutas por Día";
+}
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Rutas por Día</h2>
+
+    <form id="token-form">
+        @Html.AntiForgeryToken()
+    </form>
+
+    <div class="row justify-content-start mb-4">
+        <div class="col-md-4">
+            <label for="fecha" class="form-label fw-semibold">Selecciona una fecha:</label>
+            <div class="d-flex align-items-center gap-2">
+                <input type="date" id="fecha" class="form-control fecha-input" />
+                <button type="button" class="btn btn-primary" onclick="buscarRutas()">Buscar</button>
+            </div>
+        </div>
+    </div>
+    <br />
+    <div id="contenedorRutas" class="row g-3 justify-content-center">
+    </div>
+</div>
+@section Styles {
+    <style>
+        input[type="date"].form-control {
+            width: 250px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            padding: 0.6rem 0.75rem;
+            font-size: 1rem;
+            background-color: #f8f9fa;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+        }
+
+            input[type="date"].form-control:hover {
+                background-color: #ffffff;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.12);
+            }
+
+            input[type="date"].form-control:focus {
+                border-color: #0d6efd;
+                box-shadow: 0 0 0 0.2rem rgba(13,110,253,0.25);
+                outline: none;
+            }
+
+
+        .card-container {
+            width: 85%;
+            margin: 0 auto 1.5rem auto;
+            animation: fadeIn 0.4s ease-in-out;
+        }
+
+        .card {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: space-between;
+            border: none;
+            border-radius: 1rem;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            transition: all 0.2s ease-in-out;
+            min-height: 130px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+
+            .card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+            }
+
+        .card-content {
+            flex: 1;
+            padding: 1.5rem;
+        }
+
+        .card-title {
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .card-text {
+            margin: 0;
+            color: #444;
+        }
+
+        .card-gif {
+            width: 120px; 
+            padding-right: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
+            .card-gif img {
+                max-height: 85px;
+                width: auto;
+                border-radius: 10px;
+                margin-right: 0.25rem;
+            }
+
+        .bg-success {
+            background: linear-gradient(135deg, #d1e7dd, #badbcc) !important;
+            border-left: 5px solid #198754;
+            color: #0f5132 !important;
+        }
+
+        .bg-warning {
+            background: linear-gradient(135deg, #fff3cd, #ffecb5) !important;
+            border-left: 5px solid #ffca2c;
+            color: #664d03 !important;
+        }
+
+        .bg-danger {
+            background: linear-gradient(135deg, #f8d7da, #f5c2c7) !important;
+            border-left: 5px solid #dc3545;
+            color: #58151c !important;
+        }
+
+        .bg-secondary {
+            background: linear-gradient(135deg, #e2e3e5, #d3d6d8) !important;
+            border-left: 5px solid #6c757d;
+            color: #383d41 !important;
+        }
+
+        @@keyframes fadeIn {
+            from
+
+        {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        }
+    </style>
+}
+
+
+@{
+    var fechaDesdeQuery = Context.Request.Query["fecha"].ToString();
+}
+@section Scripts {
+    <script>
+        let cargadoInicial = false;
+
+        document.addEventListener("DOMContentLoaded", function () {
+            let fechaDesdeQuery = "@fechaDesdeQuery";
+
+            if (!fechaDesdeQuery || fechaDesdeQuery.trim() === "") {
+                const hoy = new Date();
+                const yyyy = hoy.getFullYear();
+                const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+                const dd = String(hoy.getDate()).padStart(2, '0');
+                fechaDesdeQuery = `${yyyy}-${mm}-${dd}`;
+            }
+
+            const inputFecha = document.getElementById("fecha");
+            if (inputFecha) {
+                inputFecha.value = fechaDesdeQuery;
+                buscarRutas(fechaDesdeQuery);
+            }
+        });
+
+        function buscarRutas(fechaInput) {
+            if (!fechaInput) {
+                fechaInput = document.getElementById("fecha")?.value;
+                if (!fechaInput) {
+                    alert("Por favor selecciona una fecha.");
+                    return;
+                }
+            }
+
+            const [yyyy, mm, dd] = fechaInput.split("-");
+            const fechaFormateada = `${dd}${mm}${yyyy}`;
+
+            const token = document.querySelector('#token-form input[name="__RequestVerificationToken"]').value;
+
+            fetch('@Url.Action("GetTrackingPerDay", "TrackingManager")', {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "RequestVerificationToken": token
+                },
+                body: JSON.stringify({ date: fechaFormateada })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("Error en la respuesta del servidor.");
+                return response.json();
+            })
+            .then(data => {
+                mostrarRutas(data, fechaInput);
+                cargadoInicial = false;
+            })
+            .catch(error => {
+                console.error("Error al obtener rutas:", error);
+                document.getElementById("contenedorRutas").innerHTML =
+                    `<div class="alert alert-danger">Error cargando rutas: ${error.message}</div>`;
+                cargadoInicial = false;
+            });
+        }
+
+        function mostrarRutas(lista, fechaInput) {
+            const contenedor = document.getElementById("contenedorRutas");
+            contenedor.innerHTML = "";
+
+            if (!lista || lista.length === 0) {
+                contenedor.innerHTML = "<p>No se encontraron rutas para la fecha seleccionada.</p>";
+                return;
+            }
+
+            const token = document.querySelector('#token-form input[name="__RequestVerificationToken"]').value;
+
+            lista.forEach((item, index) => {
+                let color = "";
+                const gifUrl = "https://cdnl.iconscout.com/lottie/premium/thumb/delivery-boy-drive-delivery-truck-9168038-7480784.gif";
+
+                switch (item.estatus) {
+                    case "2": color = "bg-success text-white"; break;
+                    case "1": color = "bg-warning text-dark"; break;
+                    case "0": color = "bg-danger text-white"; break;
+                    default: color = "bg-secondary text-white"; break;
+                }
+
+                const formId = `formOutbound_${index}`;
+
+                const tarjeta = `
+                    <div class="card-container">
+                        <form id="${formId}" method="post" action="@Url.Action("GetOrdersPerOutboundShipment", "TrackingManager")">
+                            <input type="hidden" name="__RequestVerificationToken" value="${token}" />
+                            <input type="hidden" name="car_sal" value="${item.car_sal}" />
+                            <input type="hidden" name="pto_alm" value="${item.pto_alm}" />
+                            <input type="hidden" name="estatus" value="${item.estatus}" />
+                            <input type="hidden" name="fechaSeleccionada" value="${fechaInput}" />
+                            <div class="card ${color}" onclick="document.getElementById('${formId}').submit()">
+                                <div class="card-content">
+                                    <h5 class="card-title mb-1">Carga de salida: ${item.car_sal}</h5>
+                                    <p class="card-text">Almacén: ${item.pto_alm}</p>
+                                </div>
+                                <div class="card-gif">
+                                    <img src="${gifUrl}" alt="Camión de entrega">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                `;
+                contenedor.innerHTML += tarjeta;
+            });
+        }
+    </script>
+}

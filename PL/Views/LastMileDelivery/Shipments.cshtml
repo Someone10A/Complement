@@ -1,0 +1,96 @@
+﻿@model List<ML.LastMileDelivery.ShipmentInfo>
+
+@{
+    ViewData["Title"] = "Embarques Por Día";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Match de embarques por Día</h2>
+
+    <form method="post" asp-action="GetShipmentsByDay" class="row g-3 align-items-end mb-4" onsubmit="return prepararFecha();">
+        <div class="col-auto">
+            <label for="fechaVisual" class="form-label fw-semibold text-secondary">Fecha</label>
+            <input type="date" class="form-control" id="fechaVisual" required />
+        </div>
+
+        <input type="hidden" id="fechaFormateada" name="date" />
+
+        <div class="col-auto">
+            <button type="submit" name="actionType" value="Buscar" class="btn btn-primary px-4">
+                <i class="bi bi-search"></i> Buscar
+            </button>
+        </div>
+        <div class="col-auto">
+            <button type="submit" name="actionType" value="Excel" class="btn btn-success px-4">
+                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+            </button>
+        </div>
+    </form>
+
+    @if (Model != null && Model.Any())
+    {
+        <div class="table-responsive shadow-sm rounded-3">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>SCN</th>
+                        <th>Orden WMS</th>
+                        <th>Fec. Carga WMS</th>
+                        <th>Car. Salida WMS</th>
+                        <th>Orden Teórica</th>
+                        <th>Fec. Carga LGA</th>
+                        <th>Fol. Salida LGA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>@item.num_scn</td>
+                            <td>@(item.ord_rel_wms ?? "-")</td>
+                            <td>@(item.fec_car_wms ?? "-")</td>
+                            <td>@(item.car_sal_wms ?? "-")</td>
+                            <td>@(item.ord_rel_lga ?? "-")</td>
+                            <td>@(item.fec_car_lga ?? "-")</td>
+                            <td>@(item.car_sal_lga ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (Model != null)
+    {
+        <div class="alert alert-info mt-4">
+            No se encontraron embarques para la fecha seleccionada.
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <script>
+            function prepararFecha() {
+            const fechaOriginal = document.getElementById("fechaVisual").value;
+
+            if (!fechaOriginal) {
+                alert("Selecciona una fecha válida.");
+                return false;
+            }
+
+            const partes = fechaOriginal.split("-");
+            if (partes.length !== 3) {
+                alert("Formato de fecha incorrecto.");
+                return false;
+            }
+
+            const [anio, mes, dia] = partes;
+            const fechaFormateada = `${dia}${mes}${anio}`;
+
+            document.getElementById("fechaFormateada").value = fechaFormateada;
+
+            document.getElementById("fechaParaExcel").value = fechaFormateada;
+
+            return true;
+        }
+    </script>
+}

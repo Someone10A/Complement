@@ -1,0 +1,15 @@
+﻿@model List<string>
+
+@if (Model != null && Model.Count > 0)
+{
+    <ul class="list-group">
+        @foreach (var item in Model)
+        {
+            <li class="list-group-item">@item</li>
+        }
+    </ul>
+}
+else
+{
+    <div class="alert alert-info">No hay detalles disponibles.</div>
+}

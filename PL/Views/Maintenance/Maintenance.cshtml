@@ -1,0 +1,133 @@
+﻿@model ML.Maintenance.InfoByScn
+
+@{
+    ViewData["Title"] = "Consulta de SCN";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Consulta de Información por SCN</h2>
+
+    <form asp-action="GetScnInfo" asp-controller="Maintenance" method="post" id="formScn" class="shadow-sm p-3 rounded-3 bg-white">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label for="numScn" class="form-label fw-semibold">Número SCN</label>
+                <input type="text" id="numScn" name="numScn" class="form-control" placeholder="Digita SCN" required />
+            </div>
+
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-search"></i> Consultar
+                </button>
+            </div>
+        </div>
+    </form>
+
+    <div id="resultado" class="mt-4">
+        @if (Model != null && Model.NumScn != null)
+        {
+            <div class="card shadow-sm rounded-3">
+                <div class="card-body">
+                    <h5 class="fw-bold text-secondary mb-3">Datos Generales</h5>
+                    <div class="row">
+                        <div class="col-md-4"><strong>SCN:</strong> @Model.NumScn</div>
+                        <div class="col-md-4"><strong>Cliente:</strong> @(Model.NomCli ?? "-") @(Model.Ape1Cli ?? "") @(Model.Ape2Cli ?? "")</div>
+                        <div class="col-md-4"><strong>Orden Relacionada:</strong> @(Model.OrdRel ?? "-")</div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-4"><strong>Dirección:</strong> @(Model.Calle ?? "-") #@(Model.NumExt ?? "-")</div>
+                        <div class="col-md-4"><strong>Colonia:</strong> @(Model.Colonia ?? "-")</div>
+                        <div class="col-md-4"><strong>Municipio:</strong> @(Model.Municipio ?? "-"), @(Model.Estado ?? "-")</div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-4"><strong>Código Postal:</strong> @(Model.CodPos ?? "-")</div>
+                        <div class="col-md-4"><strong>Teléfonos:</strong> @(Model.TelCli ?? "-"), @(Model.TelCli1 ?? "-"), @(Model.TelCli2 ?? "-")</div>
+                        <div class="col-md-4"><strong>Estado 1:</strong> @(Model.Estado1 ?? "-")</div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-4"><strong>Panel:</strong> @(Model.Panel ?? "-")</div>
+                        <div class="col-md-4"><strong>Volado:</strong> @(Model.Volado ?? "-")</div>
+                        <div class="col-md-4"><strong>MasGen:</strong> @(Model.MasGen ?? "-")</div>
+                    </div>
+
+                    <div class="row mt-2">
+                        <div class="col-md-6"><strong>Observaciones:</strong> @(Model.Observaciones ?? "-")</div>
+                        <div class="col-md-6"><strong>Referencias:</strong> @(Model.Referencias ?? "-")</div>
+                    </div>
+
+                    @if (Model.Details != null && Model.Details.Any())
+                    {
+                        <hr />
+                        <h6 class="fw-bold text-secondary mb-2">Detalles</h6>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-bordered align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>SKU</th>
+                                        <th>Piezas</th>
+                                        <th>Descripción</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var d in Model.Details)
+                                    {
+                                        <tr>
+                                            <td>@d.Sku</td>
+                                            <td>@d.Piezas</td>
+                                            <td>@d.Descripcion</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById("formScn").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            const form = this;
+            const numScn = form.numScn.value.trim();
+
+            if (!numScn) {
+                Swal.fire({
+                    title: 'Campo vacío',
+                    text: 'Por favor, ingrese un número SCN.',
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+
+            const formData = new FormData(form);
+
+            const response = await fetch(form.action, {
+                method: "POST",
+                body: formData
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                Swal.fire({
+                    title: 'SCN no consultado',
+                    text: errorText,
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+
+            const html = await response.text();
+            document.open();
+            document.write(html);
+            document.close();
+        });
+    </script>
+}

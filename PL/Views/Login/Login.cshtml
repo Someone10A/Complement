@@ -1,0 +1,96 @@
+﻿@model ML.Login.Login
+
+@{
+    ViewData["Title"] = "Login";
+    ViewData["HideFooter"] = true;
+}
+
+<style>
+    body, html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+    }
+
+    .logo-container {
+        background-color: #fff;
+    }
+
+        .logo-container img {
+            max-width: 60%;
+            height: auto;
+        }
+
+    .login-container {
+        background-color: #f8f9fa;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    @@media (max-width: 767px) {
+        body, html
+
+    {
+        overflow: auto;
+    }
+
+    .container-fluid {
+        height: auto;
+    }
+
+    .row.h-100 {
+        height: auto !important;
+    }
+
+    .logo-container {
+        display: none;
+    }
+
+    .login-container {
+        width: 90%;
+        margin: 2rem auto;
+    }
+
+    }
+</style>
+
+<div class="container-fluid vh-100">
+    <div class="row h-100">
+        <div class="col-md-6 d-flex align-items-center justify-content-center logo-container">
+            <img src="https://clipartcraft.com/images/sears-logo-red.png"
+                 alt="Sears Logo"
+                 class="img-fluid" />
+        </div>
+
+        <div class="col-md-6 d-flex align-items-center justify-content-center bg-light">
+            <div class="login-container w-75">
+                <h2 class="text-center mb-4">Iniciar Sesión</h2>
+
+                <form asp-action="Login" method="post">
+                    <div class="mb-3">
+                        <label for="usu_id" class="form-label">Usuario</label>
+                        <input asp-for="usu_id" class="form-control" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="usu_pass" class="form-label">Contraseña</label>
+                        <input asp-for="usu_pass" type="password" class="form-control" />
+                    </div>
+
+                    <div class="d-grid mb-3">
+                        <button type="submit" class="btn btn-primary">Ingresar</button>
+                    </div>
+
+                    @if (ViewBag.Error != null)
+                    {
+                        <div class="alert alert-danger text-center" role="alert">
+                            @ViewBag.Error
+                        </div>
+                    }
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

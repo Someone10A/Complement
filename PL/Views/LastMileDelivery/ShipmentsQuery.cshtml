@@ -1,0 +1,138 @@
+﻿@model List<ML.LastMileDelivery.ShipmentInfo>
+
+@{
+    ViewData["Title"] = "Embarques Consulta";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Match de embarques por parametros</h2>
+
+    <form method="post" asp-action="GetShipmentsByQuery" class="row g-3 align-items-end mb-4" onsubmit="return prepararFecha();">
+        <div class="col-md-3">
+            <label for="pivotTable" class="form-label fw-semibold text-secondary">Pivot Table</label>
+            <select class="form-select" id="pivotTable" name="queryInfo.pivotTable" required>
+                <option value="">Seleccione</option>
+                <option value="WMS">WMS</option>
+                <option value="LGA">LGA</option>
+            </select>
+        </div>
+
+        <div class="col-md-3">
+            <label for="fecPriInput" class="form-label fw-semibold text-secondary">Fecha Principal</label>
+            <input type="date" class="form-control" id="fecPriInput" required />
+            <input type="hidden" id="fecPriHidden" name="queryInfo.fec_pri" />
+        </div>
+
+        <div class="col-md-3">
+            <label for="fecSecMinInput" class="form-label fw-semibold text-secondary">Fecha Secundaria (Inicio)</label>
+            <input type="date" class="form-control" id="fecSecMinInput" required />
+            <input type="hidden" id="fecSecMinHidden" name="queryInfo.fec_sec_min" />
+        </div>
+
+        <div class="col-md-3">
+            <label for="fecSecMaxInput" class="form-label fw-semibold text-secondary">Fecha Secundaria (Fin)</label>
+            <input type="date" class="form-control" id="fecSecMaxInput" required />
+            <input type="hidden" id="fecSecMaxHidden" name="queryInfo.fec_sec_max" />
+        </div>
+
+        <div class="col-auto">
+            <button type="submit" name="actionType" value="Buscar" class="btn btn-primary px-4">
+                <i class="bi bi-search"></i> Buscar
+            </button>
+        </div>
+        <div class="col-auto">
+            <button type="submit" name="actionType" value="Excel" class="btn btn-success px-4">
+                <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+            </button>
+        </div>
+    </form>
+
+    @if (Model != null && Model.Any())
+    {
+        <div class="table-responsive shadow-sm rounded-3">
+            <table class="table table-bordered table-striped align-middle mb-0">
+                <thead class="table-dark">
+                    <tr>
+                        <th>SCN</th>
+                        <th>Orden WMS</th>
+                        <th>Fec. Carga WMS</th>
+                        <th>Car. Salida WMS</th>
+                        <th>Orden Teórica</th>
+                        <th>Fec. Carga LGA</th>
+                        <th>Fol. Salida LGA</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var item in Model)
+                    {
+                        <tr>
+                            <td>@item.num_scn</td>
+                            <td>@(item.ord_rel_wms ?? "-")</td>
+                            <td>@(item.fec_car_wms ?? "-")</td>
+                            <td>@(item.car_sal_wms ?? "-")</td>
+                            <td>@(item.ord_rel_lga ?? "-")</td>
+                            <td>@(item.fec_car_lga ?? "-")</td>
+                            <td>@(item.car_sal_lga ?? "-")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (Model != null)
+    {
+        <div class="alert alert-info mt-4">
+            No se encontraron embarques para la fecha seleccionada.
+        </div>
+    }
+</div>
+
+
+@section Scripts {
+    <script>
+                function formatearFecha(fechaStr) {
+            if (!fechaStr) return "";
+            const [anio, mes, dia] = fechaStr.split("-");
+            return `${dia}${mes}${anio}`;
+        }
+
+
+        function prepararFecha() {
+            const fecPri = document.getElementById("fecPriInput").value;
+            const fecSecMin = document.getElementById("fecSecMinInput").value;
+            const fecSecMax = document.getElementById("fecSecMaxInput").value;
+
+            if (!fecPri || !fecSecMin || !fecSecMax) {
+                alert("Por favor complete todas las fechas.");
+                return false;
+            }
+
+            if (fecSecMin > fecSecMax) {
+                alert("La fecha secundaria de inicio no puede ser mayor que la de fin.");
+                return false;
+            }
+
+            document.getElementById("fecPriHidden").value = formatearFecha(fecPri);
+            document.getElementById("fecSecMinHidden").value = formatearFecha(fecSecMin);
+            document.getElementById("fecSecMaxHidden").value = formatearFecha(fecSecMax);
+
+            return true;
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            const minDate = "2025-10-04";
+            const today = new Date();
+            today.setDate(today.getDate() - 1);
+            const yyyy = today.getFullYear();
+            const mm = ("0" + (today.getMonth() + 1)).slice(-2);
+            const dd = ("0" + today.getDate()).slice(-2);
+            const maxDate = `${yyyy}-${mm}-${dd}`;
+
+            ["fecPriInput", "fecSecMinInput", "fecSecMaxInput"].forEach(id => {
+                const input = document.getElementById(id);
+                input.min = minDate;
+                input.max = maxDate;
+            });
+        });
+    </script>
+}

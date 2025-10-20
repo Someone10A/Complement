@@ -1,0 +1,68 @@
+﻿@using BL.Menu
+@{
+    ViewData["Title"] = "Inicio";
+
+    var usu_id = Context.Session.GetString("usu_id");
+    var cv_area = Context.Session.GetString("cv_area");
+    var sub_rol = Context.Session.GetString("sub_rol");
+    var nombre = Context.Session.GetString("nombre") ?? "Usuario";
+
+    var menuItems = MenuService.GetMenu(usu_id, cv_area, sub_rol);
+}
+
+@* <div class="container-fluid mt-1 px-2"> *@
+<div class="container ps-2 mt-4">
+    <div class="mb-4">
+        <h1 class="fw-bold text-primary" style="margin-left: 0.5rem;">Bienvenid@@, @nombre 👋</h1>
+        <p class="text-muted" style="margin-left: 0.5rem;">Selecciona una opción para continuar</p>
+    </div>
+
+    <div class="row justify-content-center g-4 mt-4">
+        @foreach (var item in menuItems)
+        {
+            string description = item.Title switch
+            {
+                "Home" => "Menú principal",
+                "Privacy" => "Configuraciones y seguridad",
+                "Ordenes" => "Gestión de órdenes de compra",
+                "Consulta Hija" => "Consulta de relaciones hijas",
+                "Rutas" => "Visualiza las rutas enviadas de entrega por día",
+                "Busqueda" => "Búsqueda avanzada de registros de envíos",
+                "MatcxDia" => "Coincidencias por día",
+                "MatchxRango" => "Coincidencias por rango de fechas",
+                "BaseControl" => "Control y registro de entregas",
+                "BaseControlOTM" => "Control y registro de entregas con OTM",
+                "Mantenimiento" => "Mantenimiento a la entrega 1-1",
+                _ => ""
+            };
+
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2 text-center">
+                <a asp-controller="@item.Controller" asp-action="@item.Action"
+                   class="menu-card text-decoration-none text-dark d-block p-3 border rounded-4 shadow-sm transition">
+                    <i class="bi @item.Icon display-4 text-primary mb-3 d-block"></i>
+                    <div class="fw-semibold">@item.Title</div>
+                    <div class="text-muted small">@description</div>
+                </a>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .menu-card {
+        background-color: white;
+        transition: all 0.25s ease-in-out;
+    }
+
+        .menu-card:hover {
+            background-color: #f0f6ff;
+            box-shadow: 0 0.7rem 1.2rem rgba(0, 0, 0, 0.15);
+            transform: translateY(-4px);
+        }
+
+            .menu-card:hover i {
+                color: #0d6efd !important;
+                transform: scale(1.1);
+                transition: transform 0.2s ease-in-out;
+            }
+</style>

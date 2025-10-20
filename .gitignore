@@ -1,0 +1,7 @@
+*.dll
+bin/ 
+obj/ 
+.vs/ 
+*zip
+zpublish-api/
+zpublish/

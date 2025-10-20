@@ -1,0 +1,12 @@
+﻿@{
+    bool success = ViewBag.Success ?? false;
+    string message = ViewBag.Message ?? "";
+}
+
+<div class="alert @(success ? "alert-success" : "alert-danger")" role="alert">
+    @message
+</div>
+
+<button class="btn btn-secondary" onclick="history.back()">
+    <i class="bi bi-arrow-left"></i> Volver
+</button>

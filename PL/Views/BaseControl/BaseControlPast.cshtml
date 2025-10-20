@@ -1,0 +1,444 @@
+﻿@model List<ML.BaseControl.OutboundShipment>
+@{
+    ViewData["Title"] = "Base Control OTM";
+}
+@* <div class="container ps-2 mt-4"> *@
+<div class="container-fluid mt-1 px-2">
+
+    <h2 class="mb-4 text-primary fw-bold">Base Control - Rutas Abiertas de OTM</h2>
+
+    <form id="token-form">
+        @Html.AntiForgeryToken()
+    </form>
+
+    <div class="row g-3">
+        <div class="col-12 col-md-3 border-end" style="max-height: 80vh; overflow-y: auto;">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0 text-secondary fw-semibold">Rutas disponibles</h5>
+                <button id="btnOrdenar" class="btn btn-sm btn-outline-primary" onclick="toggleOrdenamiento()">
+                    <i class="bi bi-sort-down"></i>
+                </button>
+            </div>
+            <div id="rutasList"></div>
+        </div>
+
+        <div class="col-12 col-md-9" style="max-height: 80vh; overflow-y: auto;">
+            <h5 class="mb-3 text-secondary fw-semibold">Órdenes</h5>
+            <div id="detalleRuta">
+                <p class="text-muted">Selecciona una ruta para ver sus órdenes.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="modal fade" id="detalleOrdenModal" tabindex="-1" aria-labelledby="detalleOrdenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detalleOrdenModalLabel">Detalle de Orden</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="detalleOrdenModalBody">
+            </div>
+        </div>
+    </div>
+</div>
+
+
+@section Styles {
+    <style>
+        .ruta-card, .order-card {
+            border: none;
+            border-radius: 1rem;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            background: #fff;
+        }
+
+            .ruta-card:hover, .order-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.12);
+            }
+
+        .order-header {
+            font-weight: 600;
+            color: #333;
+            border-bottom: 1px solid rgba(0,0,0,0.08);
+            padding-bottom: 0.3rem;
+            margin-bottom: 0.7rem;
+        }
+
+        .estatus-pendiente {
+            background: linear-gradient(135deg, #f8d7da, #f5c2c7);
+            border-left: 5px solid #dc3545;
+            transition: background 0.2s ease-in-out;
+        }
+
+            .estatus-pendiente:hover {
+                background: linear-gradient(135deg, #f1b0b7, #f1949a);
+            }
+
+        .estatus-parcial {
+            background: linear-gradient(135deg, #fff3cd, #ffecb5);
+            border-left: 5px solid #ffca2c;
+            transition: background 0.2s ease-in-out;
+        }
+
+            .estatus-parcial:hover {
+                background: linear-gradient(135deg, #ffe69c, #ffe082);
+            }
+
+        .estatus-cerrado {
+            background: linear-gradient(135deg, #d1e7dd, #badbcc);
+            border-left: 5px solid #198754;
+            transition: background 0.2s ease-in-out;
+        }
+
+            .estatus-cerrado:hover {
+                background: linear-gradient(135deg, #b6d9c3, #9ccdaf);
+            }
+
+        .btn-primary {
+            border-radius: 0.7rem;
+            transition: all 0.2s ease-in-out;
+        }
+
+            .btn-primary:hover {
+                opacity: 0.9;
+                transform: scale(1.03);
+            }
+
+        .reason-select {
+            border-radius: 0.5rem;
+            border-color: #ccc;
+        }
+
+            .reason-select:focus {
+                border-color: #007bff;
+                box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.25);
+            }
+
+        .card-body {
+            color: #212529;
+        }
+
+        .card-text small {
+            color: #666;
+        }
+    </style>
+}
+
+
+@section Scripts {
+    <script>
+        let currentCarSal = null;
+        let currentPtoAlm = null;
+
+        let rutasOriginales = @Html.Raw(Json.Serialize(Model));
+        let rutasOrdenadas = [...rutasOriginales];
+        let ordenAscendente = true;
+
+        document.addEventListener("DOMContentLoaded", () => {
+            renderizarListaRutas();
+
+            document.getElementById("rutasList").addEventListener("click", function (e) {
+                const card = e.target.closest(".ruta-card");
+                if (!card) return;
+
+                const car_sal = card.dataset.car_sal;
+                const pto_alm = card.dataset.pto_alm;
+                cargarDetalleRuta(car_sal, pto_alm);
+            });
+
+            document.getElementById("btnOrdenar").addEventListener("click", () => {
+                ordenAscendente = !ordenAscendente;
+
+                const icon = document.querySelector("#btnOrdenar i");
+                icon.className = ordenAscendente ? "bi bi-sort-down" : "bi bi-sort-up";
+
+                renderizarListaRutas();
+            });
+        });
+
+        function renderizarListaRutas() {
+            const container = document.getElementById("rutasList");
+            container.innerHTML = "";
+
+            rutasOrdenadas.sort((a, b) => {
+                const fechaA = new Date(a.fec_car);
+                const fechaB = new Date(b.fec_car);
+                return ordenAscendente ? fechaA - fechaB : fechaB - fechaA;
+            });
+
+            rutasOrdenadas.forEach(ruta => {
+                const card = document.createElement("div");
+                card.className = "card mb-2 ruta-card";
+                card.setAttribute("data-car_sal", ruta.car_sal);
+                card.setAttribute("data-pto_alm", ruta.pto_alm);
+                card.style.cursor = "pointer";
+
+                card.innerHTML = `
+                    <div class="card-body py-2 px-3">
+                        <h6 class="card-title mb-1">Carga: ${ruta.car_sal}</h6>
+                        <p class="card-text"><small>Fecha: ${ruta.fec_car}</small></p>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        function cargarDetalleRuta(car_sal, pto_alm) {
+            currentCarSal = car_sal;
+            currentPtoAlm = pto_alm;
+            const token = document.querySelector('#token-form input[name="__RequestVerificationToken"]').value;
+
+            fetch("@Url.Action("GetOrdersPerRoute", "BaseControl")", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "RequestVerificationToken": token
+                },
+                body: JSON.stringify({ car_sal, pto_alm })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error("No se pudo cargar la ruta.");
+                return response.json();
+            })
+            .then(data => renderizarDetalle(data))
+            .catch(err => {
+                document.getElementById("detalleRuta").innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+            });
+        }
+
+        function getColorPorEstatus(estat_rut, estat_rt) {
+            if (!estat_rut) return "";
+
+            if (estat_rut.startsWith("0")) {
+                if (estat_rt && estat_rt.startsWith("X")) {
+                    return "estatus-pendiente";
+                } else {
+                    return "estatus-parcial";
+                }
+            }
+
+            if (estat_rut.startsWith("1")) {
+                return "estatus-cerrado";
+            }
+
+            return "estatus-parcial";
+        }
+
+        async function obtenerMotivos() {
+            try {
+                const response = await fetch("@Url.Action("GetReasons", "BaseControl")");
+                if (!response.ok) throw new Error("Error al obtener los motivos");
+                return await response.json();
+            } catch (err) {
+                console.error(err);
+                return [];
+            }
+        }
+
+        async function renderizarDetalle(ordenes) {
+            const container = document.getElementById("detalleRuta");
+            container.innerHTML = "";
+
+            if (!ordenes || ordenes.length === 0) {
+                container.innerHTML = "<p>No hay órdenes para esta carga.</p>";
+                return;
+            }
+            const motivos = await obtenerMotivos();
+
+            ordenes.forEach((ord, index) => {
+                const card = document.createElement("div");
+                card.className = "card mb-3 order-card";
+
+                const colorClase = getColorPorEstatus(ord.estatus_ruta, ord.estatus_rt);
+                card.classList.add(colorClase);
+
+                const selectId = `reason-select-${index}`;
+
+                const mostrarMotivos = ord.estatus_ruta && ord.estatus_ruta.startsWith("0") && ord.estatus_rt.startsWith("X");
+
+                const bloqueMotivos = mostrarMotivos ? `
+                    <div class="row mt-3">
+                        <div class="col-md-8">
+                            <select id="${selectId}" class="form-select reason-select"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <button class="btn btn-primary w-100 btn-enviar-confirmacion"
+                                data-ord_rel="${ord.ord_rel}"
+                                data-car_sal="${ord.car_sal}"
+                                data-index="${index}">
+                            Enviar
+                        </button>
+                        </div>
+                    </div>
+                ` : "";
+
+                card.innerHTML = `
+                    <div class="card-body py-3 px-4">
+                        <div class="order-header mb-2 fw-bold fs-4">${ord.cliente} (${ord.cod_cli})</div>
+                        <div class="row">
+                            <div class="col-md-8">
+                                <div class="row">
+                                    <div class="col-md-6"><strong>Orden:</strong> ${ord.ord_rel}</div>
+                                    <div class="col-md-6"><strong>SCN:</strong> ${ord.num_scn}</div>
+                                    <div class="col-md-6"><strong>Ruta:</strong> ${ord.car_sal}</div>
+                                    <div class="col-md-6"><strong>Ult.Fecha:</strong> ${ord.fec_act}</div>
+                                    <div class="col-md-6"><strong>Estatus Ruta:</strong> ${ord.estatus_ruta}</div>
+                                    <div class="col-md-6"><strong>Estatus GNX:</strong> ${ord.estatus_gnx}</div>
+                                    <div class="col-md-6"><strong>Estatus RT:</strong> ${ord.estatus_rt}</div>
+                                    <div class="col-md-6"><strong>Motivo:</strong> ${ord.motivo}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="row">
+                                    <div class="col">
+                                        <button class="btn btn-primary w-100" onclick="verDetalleApi('${ord.ord_rel}')">Ver Detalle</button>
+
+                                    </div>
+                                </div>
+                                ${bloqueMotivos}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+
+                if (mostrarMotivos) {
+                    const select = document.getElementById(selectId);
+                    motivos.forEach((m, i) => {
+                        const opt = document.createElement("option");
+                        opt.value = m.cod_mot;
+                        opt.text = `${m.cod_mot} - ${m.des_mot}`;
+                        if (i === 0) opt.selected = true;
+                        select.appendChild(opt);
+                    });
+                }
+            });
+
+            document.querySelectorAll(".btn-enviar-confirmacion").forEach(btn => {
+            btn.addEventListener("click", function () {
+                const index = this.dataset.index;
+                const ord_rel = this.dataset.ord_rel;
+                const shipment = this.dataset.car_sal;
+                const select = document.getElementById(`reason-select-${index}`);
+                const deliveryReason = select.value;
+
+                const token = document.querySelector('#token-form input[name="__RequestVerificationToken"]').value;
+
+                $.ajax({
+                    url: "@Url.Action("Confirmation", "BaseControl")",
+                    method: "POST",
+                    contentType: "application/json",
+                    headers: {
+                        "RequestVerificationToken": token
+                    },
+                    data: JSON.stringify({
+                        OrdRel: ord_rel,
+                        Shipment: shipment,
+                        DeliveryReason: deliveryReason
+                    }),
+                    success: function (response) {
+                         Swal.fire({
+                              title: 'Respuesta',
+                              text: response,
+                              icon: 'info',
+                              confirmButtonText: 'Aceptar'
+                            });
+
+                        if (currentCarSal && currentPtoAlm) {
+                            cargarDetalleRuta(currentCarSal, currentPtoAlm);
+                        }
+                    },
+                    error: function (xhr) {
+                        alert("Error: " + xhr.responseText);
+                    }
+                });
+            });
+        });
+        }
+
+        async function verDetalleApi(ord_rel) {
+            try {
+                const responseCredentials = await fetch("/OracleData/GetCredentials");
+                const dataCredentials = await responseCredentials.json();
+
+                const username = dataCredentials.username;
+                const password = dataCredentials.password;
+
+                const responseEndPoint = await fetch("/OracleData/GetEndPointOLPN");
+                const dataEndPoint = await responseEndPoint.json();
+
+                const finalUrl = dataEndPoint.endPoint.replace("ORDER_RELEASE", encodeURIComponent(ord_rel));
+
+                $.ajax({
+                    url: finalUrl,
+                    method: "GET",
+                    headers: {
+                        "Authorization": "Basic " + btoa(username + ":" + password),
+                        "Content-Type": "application/json"
+                    },
+                    success: function (data) {
+                        if (data && data.results && data.results.length > 0) {
+                            mostrarDetalleEnModal(data.results, ord_rel);
+                        } else {
+                            mostrarDetalleEnModal([], ord_rel);
+                        }
+                    },
+                    error: function (xhr, status, error) {
+                        const msg = `<div class="text-danger">Error al obtener detalle: ${xhr.status} ${xhr.statusText}</div>`;
+                        document.getElementById("detalleOrdenModalBody").innerHTML = msg;
+                        bootstrap.Modal.getOrCreateInstance(document.getElementById('detalleOrdenModal')).show();
+                    }
+                });
+
+            } catch (err) {
+                document.getElementById("detalleOrdenModalBody").innerHTML = `<div class="text-danger">Error inesperado: ${err.message}</div>`;
+                bootstrap.Modal.getOrCreateInstance(document.getElementById('detalleOrdenModal')).show();
+            }
+        }
+
+        function mostrarDetalleEnModal(detalles, ord_rel) {
+            const detallesFiltrados = detalles.filter(d => d.LpnStatus === "Shipped");
+
+            let html = `<h6>Orden: ${ord_rel}</h6><table class="table table-bordered mt-3">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>SKU</th>
+                        <th>OLPN</th>
+                        <th>Cantidad</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+
+            if (detalles.length === 0) {
+                html += `<tr><td colspan="4" class="text-center">No hay detalles disponibles.</td></tr>`;
+            } else {
+                detallesFiltrados.forEach(d => {
+                    html += `
+                        <tr>
+                            <td>${d.Product}</td>
+                            <td>${d.Sku}</td>
+                            <td>${d.Olpn}</td>
+                            <td>${d.Quantity}</td>
+                        </tr>`;
+                });
+            }
+
+            html += `</tbody></table>`;
+
+            document.getElementById("detalleOrdenModalBody").innerHTML = html;
+
+            const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('detalleOrdenModal'));
+            modal.show();
+        }
+
+        //# sourceURL=debug-scripts.js
+    </script>
+}

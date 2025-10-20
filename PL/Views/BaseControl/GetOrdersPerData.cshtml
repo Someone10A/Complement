@@ -1,0 +1,238 @@
+﻿@{
+    ViewData["Title"] = "Buscar órdenes";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+@* <div class="container ps-2 mt-4"> *@
+<div class="container-fluid mt-1 px-2">
+
+    <div class="card shadow-sm border-0 rounded-3">
+        <div class="card-body">
+            <h2 class="mb-4 text-primary fw-bold">
+                Buscar Órdenes
+            </h2>
+
+            <form onsubmit="event.preventDefault(); buscarOrdenes();" class="row g-3">
+                <div class="col-md-5">
+                    <label for="dataInfo" class="form-label fw-semibold">Dato a buscar</label>
+                    <input type="text" id="dataInfo" class="form-control" placeholder="Ej. SCN, Carga u Orden" />
+                </div>
+
+                <div class="col-md-4">
+                    <label for="dataType" class="form-label fw-semibold">Tipo de dato</label>
+                    <select id="dataType" class="form-select">
+                        <option value="num_scn">SCN</option>
+                        <option value="car_sal">Carga WMS</option>
+                        <option value="ord_rel">Orden</option>
+                    </select>
+                </div>
+
+                <div class="col-md-3 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search me-1"></i> Buscar
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="detalleRuta" class="mt-4"></div>
+</div>
+
+
+<div class="modal fade" id="detalleOrdenModal" tabindex="-1" aria-labelledby="detalleOrdenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detalleOrdenModalLabel">Detalle de Orden</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body" id="detalleOrdenModalBody"></div>
+        </div>
+    </div>
+</div>
+
+@section Styles {
+    <style>
+        .estatus-pendiente {
+            background: linear-gradient(135deg, #f8d7da, #f5c2c7);
+            border-left: 5px solid #dc3545;
+            color: #842029;
+        }
+
+        .estatus-parcial {
+            background: linear-gradient(135deg, #fff3cd, #ffecb5);
+            border-left: 5px solid #ffca2c;
+            color: #664d03;
+        }
+
+        .estatus-cerrado {
+            background: linear-gradient(135deg, #d1e7dd, #badbcc);
+            border-left: 5px solid #198754;
+            color: #0f5132;
+        }
+
+        .order-card {
+            transition: transform 0.2s ease-in-out, box-shadow 0.2s;
+            border: none;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+
+            .order-card:hover {
+                transform: scale(1.01);
+                box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            }
+
+        .order-header {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .modal-content {
+            border-radius: 12px;
+        }
+    </style>
+}
+
+
+@section Scripts {
+    <script>
+        async function buscarOrdenes() {
+
+            const dataInfo = document.getElementById("dataInfo").value.trim();
+            const dataType = document.getElementById("dataType").value;
+            const container = document.getElementById("detalleRuta");
+            container.innerHTML = "";
+
+            if (!dataInfo) {
+                container.innerHTML = '<div class="alert alert-warning">Por favor ingresa un dato.</div>';
+                return;
+            }
+
+            fetch("@Url.Action("GetOrdersPerData", "BaseControl")", {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ data_info: dataInfo, data_type: dataType })
+            })
+            .then(res => {
+                if (!res.ok) throw new Error("Error al buscar");
+                return res.json();
+            })
+            .then(data => renderizarDetalle(data))
+            .catch(err => {
+                console.error(err);
+                container.innerHTML = '<div class="alert alert-danger">Error al buscar órdenes.</div>';
+            });
+        }
+
+        function getColorPorEstatus(est_rut, est_rt) {
+            if (!est_rut) return "";
+            if (est_rut.startsWith("0")) {
+                return (est_rt && est_rt.startsWith("X")) ? "estatus-pendiente" : "estatus-parcial";
+            }
+            if (est_rut.startsWith("1")) return "estatus-cerrado";
+            return "estatus-parcial";
+        }
+
+        function renderizarDetalle(ordenes) {
+            const container = document.getElementById("detalleRuta");
+            container.innerHTML = "";
+
+            if (!ordenes || ordenes.length === 0) {
+                container.innerHTML = "<p>No se encontraron órdenes.</p>";
+                return;
+            }
+
+            ordenes.forEach(ord => {
+                const card = document.createElement("div");
+                card.className = "card mb-3 order-card " + getColorPorEstatus(ord.estatus_ruta, ord.estatus_rt);
+
+                card.innerHTML = `
+                    <div class="card-body">
+                        <div class="order-header mb-2">${ord.cliente} (${ord.cod_cli})</div>
+                        <div class="row">
+                            <div class="col-md-6"><strong>Orden:</strong> ${ord.ord_rel}</div>
+                            <div class="col-md-6"><strong>SCN:</strong> ${ord.num_scn}</div>
+                            <div class="col-md-6"><strong>Ruta:</strong> ${ord.car_sal}</div>
+                            <div class="col-md-6"><strong>Últ. Fecha:</strong> ${ord.fec_act}</div>
+                            <div class="col-md-6"><strong>Estatus Ruta:</strong> ${ord.estatus_ruta}</div>
+                            <div class="col-md-6"><strong>Estatus GNX:</strong> ${ord.estatus_gnx}</div>
+                            <div class="col-md-6"><strong>Estatus RT:</strong> ${ord.estatus_rt}</div>
+                            <div class="col-md-6"><strong>Motivo:</strong> ${ord.motivo}</div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col">
+                                <button class="btn btn-primary w-100" onclick="verDetalleApi('${ord.ord_rel}')">Ver Detalle</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+                async function verDetalleApi(ord_rel) {
+            const responseCredentials = await fetch("/OracleData/GetCredentials");
+            const dataCredentials = await responseCredentials.json();
+
+            const username = dataCredentials.username;
+            const password = dataCredentials.password;
+
+            const responseEndPoint = await fetch("/OracleData/GetEndPointOLPN");
+            const dataEndPoint = await responseEndPoint.json();
+
+            const finalUrl = dataEndPoint.endPoint.replace("ORDER_RELEASE", encodeURIComponent(ord_rel));
+
+            $.ajax({
+                url: finalUrl,
+                method: "GET",
+                headers: {
+                    "Authorization": "Basic " + btoa(username + ":" + password),
+                    "Content-Type": "application/json"
+                },
+                success: function (data) {
+                    const detalles = data?.results ?? [];
+                    mostrarDetalleEnModal(detalles, ord_rel);
+                },
+                error: function (xhr) {
+                    document.getElementById("detalleOrdenModalBody").innerHTML =
+                        `<div class="text-danger">Error al obtener detalle: ${xhr.statusText}</div>`;
+                    bootstrap.Modal.getOrCreateInstance(document.getElementById('detalleOrdenModal')).show();
+                }
+            });
+        }
+
+        function mostrarDetalleEnModal(detalles, ord_rel) {
+            const enviados = detalles.filter(d => d.LpnStatus === "Shipped");
+
+            let html = `<h6>Orden: ${ord_rel}</h6>
+                <table class="table table-bordered mt-3">
+                    <thead>
+                        <tr>
+                            <th>Producto</th>
+                            <th>SKU</th>
+                            <th>OLPN</th>
+                            <th>Cantidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+
+            if (enviados.length === 0) {
+                html += `<tr><td colspan="4" class="text-center">No hay detalles enviados.</td></tr>`;
+            } else {
+                enviados.forEach(d => {
+                    html += `<tr>
+                        <td>${d.Product}</td>
+                        <td>${d.Sku}</td>
+                        <td>${d.Olpn}</td>
+                        <td>${d.Quantity}</td>
+                    </tr>`;
+                });
+            }
+
+            html += `</tbody></table>`;
+            document.getElementById("detalleOrdenModalBody").innerHTML = html;
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('detalleOrdenModal')).show();
+        }
+    </script>
+}

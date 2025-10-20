@@ -1,0 +1,87 @@
+﻿@{
+    ViewBag.Title = "Consultar Relación de Órdenes";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Consultar Relación de Órdenes</h2>
+
+    <div class="shadow-sm p-4 rounded-3 bg-white mb-4">
+        <div class="mb-3">
+            <label for="orderList" class="form-label fw-semibold">Lista de órdenes (separadas por coma):</label>
+            <input type="text" id="orderList" class="form-control" placeholder="Ej: 123,456,789" />
+        </div>
+
+        <div class="d-flex justify-content-end">
+            <button id="btnConsultar" class="btn btn-primary px-4">
+                <i class="bi bi-search"></i> Consultar
+            </button>
+        </div>
+    </div>
+
+    <div id="alertaError" class="alert alert-danger d-none"></div>
+
+    <div class="table-responsive shadow-sm rounded-3 bg-white">
+        <table id="tablaResultado" class="table table-striped table-bordered align-middle mb-0 d-none">
+            <thead class="table-dark">
+                <tr>
+                    <th>OC Origen</th>
+                    <th>Número de Pedido</th>
+                    <th>Cantidad Distribuida</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+
+@section Scripts {
+    @* <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script> *@
+
+    <script>
+        $(document).ready(function () {
+            $("#btnConsultar").click(function () {
+                var orderList = $("#orderList").val();
+
+                $.ajax({
+                    type: "POST",
+                    url: '@Url.Action("GetRelation", "Importations")',
+                    data: { orderList: orderList },
+                    success: function (data) {
+                        if (data.error === "unauthorized") {
+                            window.location.href = "/Login/Login";
+                            return;
+                        }
+
+                        if (data && data.length > 0) {
+                            $("#alertaError").addClass("d-none");
+                            $("#tablaResultado tbody").empty();
+
+                            data.forEach(function (order) {
+                                $("#tablaResultado tbody").append(
+                                    `<tr>
+                                        <td>${order.ocorig ?? ""}</td>
+                                        <td>${order.num_ped ?? ""}</td>
+                                        <td>${order.cant_distribu ?? ""}</td>
+                                    </tr>`
+                                );
+                            });
+
+                            $("#tablaResultado").removeClass("d-none");
+                        } else {
+                            $("#tablaResultado").addClass("d-none");
+                            $("#alertaError").text("No se encontraron resultados.").removeClass("d-none");
+                        }
+                    },
+                    error: function (xhr) {
+                        console.error("AJAX error:", xhr);
+                        $("#tablaResultado").addClass("d-none");
+                        $("#alertaError").text("Error en la consulta. Intenta de nuevo.").removeClass("d-none");
+                    }
+                });
+            });
+        });
+    </script>
+}
+

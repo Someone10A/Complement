@@ -13,8 +13,8 @@ namespace ML.Maintenance
         public string CodPto { get; set; }
         public string NumEdc { get; set; }
         public string OrdRel { get; set; }
-        public string Estado1 { get; set; }
-        public string Estado2 { get; set; }
+        public string Estado1 { get; set; }//edc_cab
+        public string Estado2 { get; set; }//ordedc_cab
         public string? FecEnt { get; set; }
         public string? FecCli { get; set; }
         public string? FecEntR { get; set; }

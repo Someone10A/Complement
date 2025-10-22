@@ -30,6 +30,7 @@
                 "Busqueda" => "Búsqueda avanzada de registros de envíos",
                 "MatcxDia" => "Coincidencias por día",
                 "MatchxRango" => "Coincidencias por rango de fechas",
+                "Regresos" => "Regresos de ruta pendientes por recibir",
                 "BaseControl" => "Control y registro de entregas",
                 "BaseControlOTM" => "Control y registro de entregas con OTM",
                 "Mantenimiento" => "Mantenimiento a la entrega 1-1",
@@ -39,7 +40,11 @@
             <div class="col-6 col-sm-4 col-md-3 col-lg-2 text-center">
                 <a asp-controller="@item.Controller" asp-action="@item.Action"
                    class="menu-card text-decoration-none text-dark d-block p-3 border rounded-4 shadow-sm transition">
-                    <i class="bi @item.Icon display-4 text-primary mb-3 d-block"></i>
+                    @* <i class="bi @item.Icon display-4 text-primary mb-3 d-block"></i> *@
+                    @foreach (var icon in item.Icon.Split(' '))
+                    {
+                        <i class="bi @icon display-6 text-primary me-1"></i>
+                    }
                     <div class="fw-semibold">@item.Title</div>
                     <div class="text-muted small">@description</div>
                 </a>

@@ -357,23 +357,52 @@ namespace BL.Maintenance
                     connection.Open();
 
                     /*
-                        Si es Rdd 
-	                        actualizar ora_integra_envio
+                        Si es Rdd ----Opcional
+	                        actualizar ora_integra_envio----Opcional
 
-                        Actualizar lgaent
+                        Actualizar dblga@lga_prod:lgaent
 
-                        Insertar O Actualizar cli_dir_coord
+                        Insertar O Actualizar cli_coord o cli_dir_coord
 
-                        Actualizar cli_direccion
+                        Actualizar cli_direccion(WS-Mercarerias)
 
                         Si es posfecha 
-	                        actualizar edc_cab
+	                        actualizar edc_cab (WS-Mercarerias)
 
                         Si Confirmado
 	                        Insertar o actualizar Tabla para universo de ruteo
-	                        actualizar ora_mantenimiento
+                                ora_confirmacion.usu_con se obtiene de sesion
+	                        actualizar ora_mantenimiento a estatus 2
 	
                         */
+
+                    ///dblga@lga_prod:lgaent
+                    /*
+                     cod_empresa    1
+                        cd_id          870
+                        no_transf      102606727
+                        folio_hruta
+                        f_entrega---------------Actualiza
+                        no_tel         0445513531737
+                        no_tel1        0445523031048
+                        no_tel2
+                        tel_ofna
+                        ext_ofna       0
+                        nom_cte        GUILLERMO MARTINEZ DE LA ROSA
+                        direc_cte---------------Actualiza
+                        direc_cte1---------------Actualiza
+                        col_poblacion---------------Actualiza
+                        del_municipio---------------Actualiza
+                        ciudad
+                        edo_entfed                       9
+                        cod_postal---------------Actualiza
+                        sector_emb     15
+                        st_ent         102
+                        indic          X
+                        observ---------------Actualiza
+                        f_act---------------Actualiza
+                        usuario---------------Actualiza
+                     */
 
                     result.Correct = true;
                     result.Object = "";

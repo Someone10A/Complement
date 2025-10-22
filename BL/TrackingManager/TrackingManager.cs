@@ -207,5 +207,209 @@ namespace BL.TrackingManager
             }
             return result;  
         }
+        public static ML.Result GetReturnedOrders2(string pto_alm,  string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string query = $@"SELECT
+	                                    TRIM(A.car_sal) AS car_sal,
+	                                    A.fec_act,
+	                                    TRIM(TO_CHAR(F.cod_cli)||REPLACE(F.nom_cli, ' ', ''))  as cod_cli,
+                                        UPPER(TRIM(F.nom_cli)||' '||TRIM(F.ape1_cli)||' '||TRIM(F.ape2_cli)) AS cliente,
+	                                    TRIM(A.ord_rel) AS ord_rel,B.num_scn,B.cod_pto,
+                                    CASE
+	                                    WHEN A.estatus = 0 THEN A.estatus||'-Pendiente'
+	                                    WHEN A.estatus = 1 THEN A.estatus||'-Cerrado'
+	                                    WHEN A.estatus = 2 THEN A.estatus||'-Creando evento'
+	                                    ELSE 'Estado No listado.'
+                                    END AS estatus_ruta,
+                                    CASE
+	                                    WHEN B.estado = 'P' THEN B.estado||C.estado||'-Retenido-Transito'				
+	                                    WHEN B.estado = 'T' THEN B.estado||C.estado||'-Transito'
+	                                    WHEN B.estado = 'I' THEN B.estado||C.estado||'-Impreso'
+	                                    WHEN B.estado = 'X' THEN B.estado||C.estado||'-Cancelado'
+	                                    WHEN B.estado = 'E' THEN B.estado||C.estado||'-Entregado'
+	                                    WHEN B.estado = 'G' THEN B.estado||C.estado||'-Generado'
+	                                    ELSE B.estado||C.estado||'-Estado desconocido'
+                                    END AS estatus_gnx,
+                                    CASE
+	                                    WHEN D.rt_stat IS NULL THEN 'X-Esperando interfaz de evento'
+	                                    WHEN D.rt_stat = 1 THEN '1-Interfaz ENTREGA para Genesix generada'
+	                                    WHEN D.rt_stat = 2 THEN '2-Generando ASN para WMS'
+	                                    WHEN D.rt_stat = 3 THEN '3-ASN Generado'
+	                                    WHEN D.rt_stat = 4 THEN '4-Interfaz Retención para Genesix generada'
+	                                    WHEN D.rt_stat = 5 THEN '5-Evento marcado por base-Generando transmision'
+	                                    ELSE 'Estado No listado.'
+                                    END AS estatus_rt,
+                                    CASE WHEN (E.des_mot IS NULL)
+                                    THEN
+	                                    'X-Evento no registrado aun'
+                                    ELSE
+	                                    E.cod_mot||'-'||TRIM(E.des_mot)
+                                    END AS motivo
+                                    FROM ora_ruta A
+                                    JOIN edc_cab B ON B.cod_emp = 1 AND B.num_scn = A.num_scn
+                                    JOIN ordedc_cab C ON C.cod_emp = B.cod_emp AND C.cod_pto = B.cod_pto AND C.num_edc = B.num_edc
+                                    LEFT JOIN ora_rt D ON D.cod_emp = B.cod_emp AND D.ord_rel = A.ord_rel
+                                    LEFT JOIN ora_motivos_rt E ON E.cod_mot = D.cod_mot
+                                    INNER JOIN clientes F ON F.cod_emp = B.cod_emp AND F.cod_cli = B.cod_cli
+                                    WHERE A.pto_alm = {pto_alm}
+                                    AND D.rt_stat = 3
+                                    ORDER BY A.fec_act";
+
+                    List<ML.BaseControl.Order> orderList = new List<ML.BaseControl.Order>();
+
+                    OdbcDataAdapter adapter = new OdbcDataAdapter(query, connection);
+
+                    DataTable table = new DataTable();
+
+                    adapter.Fill(table);
+
+
+                    foreach (DataRow dataRow in table.Rows)
+                    {
+                        ML.BaseControl.Order order = new ML.BaseControl.Order
+                        {
+                            car_sal = dataRow["car_sal"].ToString(),
+                            fec_act = dataRow["fec_act"].ToString(),
+                            cod_cli = dataRow["cod_cli"].ToString(),
+                            cliente = dataRow["cliente"].ToString(),
+                            ord_rel = dataRow["ord_rel"].ToString(),
+                            num_scn = dataRow["num_scn"].ToString(),
+                            cod_pto = dataRow["cod_pto"].ToString(),
+                            estatus_ruta = dataRow["estatus_ruta"].ToString(),
+                            estatus_gnx = dataRow["estatus_gnx"].ToString(),
+                            estatus_rt = dataRow["estatus_rt"].ToString(),
+                            motivo = dataRow["motivo"].ToString()
+                        };
+
+                        orderList.Add(order);
+                    }
+
+                    result.Correct = true;
+                    result.Object = orderList;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Se obtuvo un error al consultar los viajes.";
+            }
+            return result;
+        }
+        public static ML.Result GetReturnedOrders(string pto_alm, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string query = $@"SELECT
+	                                        A.fec_car,
+	                                        A.fec_act,
+	                                        TRIM(A.car_sal) AS car_sal,
+	                                        TRIM(A.ord_rel) AS ord_rel,
+	                                        B.num_scn,
+	                                        UPPER(TRIM(F.nom_cli)||' '||TRIM(F.ape1_cli)||' '||TRIM(F.ape2_cli)) ||':'|| TRIM(TO_CHAR(F.cod_cli)||REPLACE(F.nom_cli, ' ', '')) AS cliente,
+	                                        A.estatus,
+                                        CASE
+	                                        WHEN A.estatus = 0 THEN '-Pendiente'
+	                                        WHEN A.estatus = 1 THEN '-Cerrado'
+	                                        WHEN A.estatus = 2 THEN '-Creando evento'
+	                                        ELSE 'Estado No listado.'
+                                        END AS estatus_ord_rel,
+	                                        B.estado||C.estado AS estado,
+                                        CASE
+	                                        WHEN B.estado = 'P' THEN '-Retenido-Transito'				
+	                                        WHEN B.estado = 'T' THEN '-Transito'
+	                                        WHEN B.estado = 'I' THEN '-Impreso'
+	                                        WHEN B.estado = 'X' THEN '-Cancelado'
+	                                        WHEN B.estado = 'E' THEN '-Entregado'
+	                                        WHEN B.estado = 'G' THEN '-Generado'
+	                                        ELSE '-Estado desconocido'
+                                        END AS estado_gnx,
+	                                    CASE
+	                                        WHEN D.rt_stat IS NULL THEN 'X'
+	                                        ELSE TO_CHAR(D.rt_stat)
+                                        END AS rt_stat,
+                                        CASE
+	                                        WHEN D.rt_stat IS NULL THEN 'Esperando interfaz de evento'
+	                                        WHEN D.rt_stat = 1 THEN 'Interfaz ENTREGA para Genesix generada'
+	                                        WHEN D.rt_stat = 2 THEN 'Generando ASN para WMS'
+	                                        WHEN D.rt_stat = 3 THEN 'ASN Generado'
+	                                        WHEN D.rt_stat = 4 THEN 'Interfaz Retención para Genesix generada'
+	                                        WHEN D.rt_stat = 5 THEN 'Evento marcado por base-Generando transmision'
+	                                        ELSE 'Estado No listado.'
+                                        END AS estado_rt,
+	                                    CASE
+	                                        WHEN E.des_mot IS NULL THEN 'X'
+	                                        ELSE TO_CHAR(E.cod_mot)
+	                                    END AS cod_mot,
+                                        CASE WHEN (E.des_mot IS NULL)
+                                        THEN
+	                                        '-Evento no registrado aun'
+                                        ELSE
+	                                        '-'||TRIM(E.des_mot)
+                                        END AS motivo
+                                        FROM ora_ruta A
+                                        JOIN edc_cab B ON B.cod_emp = 1 AND B.num_scn = A.num_scn
+                                        JOIN ordedc_cab C ON C.cod_emp = B.cod_emp AND C.cod_pto = B.cod_pto AND C.num_edc = B.num_edc
+                                        LEFT JOIN ora_rt D ON D.cod_emp = B.cod_emp AND D.ord_rel = A.ord_rel
+                                        LEFT JOIN ora_motivos_rt E ON E.cod_mot = D.cod_mot
+                                        INNER JOIN clientes F ON F.cod_emp = B.cod_emp AND F.cod_cli = B.cod_cli
+                                        WHERE A.pto_alm = {pto_alm}
+                                        AND D.rt_stat = 3'
+                                        ORDER BY A.estatus DESC";
+
+                    List<ML.TrackingManager.TrackingManager> trackingManagertList = new List<ML.TrackingManager.TrackingManager>();
+
+                    OdbcDataAdapter adapter = new OdbcDataAdapter(query, connection);
+
+                    DataTable table = new DataTable();
+
+                    adapter.Fill(table);
+
+
+                    foreach (DataRow dataRow in table.Rows)
+                    {
+                        ML.TrackingManager.TrackingManager trackingManager = new ML.TrackingManager.TrackingManager
+                        {
+                            fec_car = dataRow["fec_car"].ToString(),
+                            fec_act = dataRow["fec_act"].ToString(),
+                            car_sal = dataRow["car_sal"].ToString(),
+                            ord_rel = dataRow["ord_rel"].ToString(),
+                            num_scn = dataRow["num_scn"].ToString(),
+                            cliente = dataRow["cliente"].ToString(),
+                            estatus = int.Parse(dataRow["estatus"].ToString()),
+                            estatus_ord_rel = dataRow["estatus_ord_rel"].ToString(),
+                            estado = dataRow["estado"].ToString(),
+                            estado_gnx = dataRow["estado_gnx"].ToString(),
+                            rt_stat = dataRow["rt_stat"].ToString(),
+                            estado_rt = dataRow["estado_rt"].ToString(),
+                            cod_mot = dataRow["cod_mot"].ToString(),
+                            motivo = dataRow["motivo"].ToString(),
+                        };
+
+                        trackingManagertList.Add(trackingManager);
+                    }
+
+                    result.Correct = true;
+                    result.Object = trackingManagertList;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Se obtuvo un error al consultar los viajes.";
+            }
+            return result;
+        }
     }
 }

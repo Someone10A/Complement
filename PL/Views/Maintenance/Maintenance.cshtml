@@ -21,7 +21,35 @@
             </div>
         </div>
     </form>
-
+    @*
+        --Los estados siguientes no se puede dar mantenimiento
+            "X" Cancelado
+            "C" PreCancelado
+            "E" Entregado
+            "D" Devuelto
+            "G" Generado
+        --En teoria solo serian estados 
+            "I" o "P"
+        --E mantenimiento solo puede posfechar
+            "DISPONIBLE" 
+            y tal vez en "ENVIADO" y 
+            "EN PROCESO DE ENVIO"
+        --Mostrar OrdRel como apartado "orden WMS""
+        --Mostrar fecha correcta
+        --No enviar datos 
+            vacios referencias, observaciones u 
+            numeros internos u externos al menos 
+            poner una x o un 0
+        --Panel Volado y MasGen solo aceptar N o S
+        --Si InPlan es distinto de NO poner que 
+            ya esta planeandose e impedir o al 
+            usuario modificar fecha, si acaso solo
+            dirección, pero no es recomendado
+        --Si InRoute(salio del almacen) es distinto de NO poner que 
+            ya esta en ruta e impedir o al 
+            usuario modificar trae el dato de la carga
+            de salida cuando esta en ruta 
+    *@
     <div id="resultado" class="mt-4">
         @if (Model != null && Model.NumScn != null)
         {

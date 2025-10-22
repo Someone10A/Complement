@@ -20,13 +20,13 @@ namespace BL.Menu
                 return menu;
             }
 
-            if (cv_area == "CIC")
+            if (cv_area == "CIC" && sub_rol == "CIC")
             {
                 menu.Add(new MenuItem("Ordenes", "Importations", "GetOrders", "bi-receipt"));
                 menu.Add(new MenuItem("Consulta Hija", "Importations", "GetRelation", "bi-search"));
             }
 
-            if (cv_area == "CON" || cv_area == "GGB")
+            if (cv_area == "CON" || cv_area == "GGB"|| sub_rol == "CIN")
             {
                 menu.Add(new MenuItem("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck"));
                 menu.Add(new MenuItem("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"));
@@ -34,12 +34,12 @@ namespace BL.Menu
                 menu.Add(new MenuItem("MatchxRango", "LastMileDelivery", "GetShipmentsByQuery", "bi-calendar2-week"));
             }
 
-            if (sub_rol == "BAS" || sub_rol == "INT" || sub_rol == "SUP" || cv_area == "GGB")
+            if (sub_rol == "BAS" || sub_rol == "INT" || sub_rol == "SCS" || cv_area == "GGB")
             {
                 menu.Add(new MenuItem("BaseControl", "BaseControl", "BaseControl", "bi-clipboard-check"));
             }
 
-            if (sub_rol == "SUP" || cv_area == "GGB")
+            if (sub_rol == "SCS" || cv_area == "GGB")
             {
                 menu.Add(new MenuItem("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"));
             }
@@ -55,9 +55,10 @@ namespace BL.Menu
                 new("Ordenes", "Importations", "GetOrders", "bi-receipt"),
                 new("Consulta Hija", "Importations", "GetRelation", "bi-search"),
                 new("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck"),
-                new("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"),
+                new("Regresos", "TrackingManager", "ReturnedOrders", "bi-box-seam bi-arrow-return-left"),
                 new("MatcxDia", "LastMileDelivery", "GetShipmentsByDay", "bi-calendar3-event"),
                 new("MatchxRango", "LastMileDelivery", "GetShipmentsByQuery", "bi-calendar2-week"),
+                new("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"),
                 new("BaseControl", "BaseControl", "BaseControl", "bi-clipboard-check"),
                 new("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"),
                 new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt")

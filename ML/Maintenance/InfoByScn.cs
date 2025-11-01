@@ -15,6 +15,7 @@ namespace ML.Maintenance
         public string OrdRel { get; set; }
         public string Estado1 { get; set; }//edc_cab
         public string Estado2 { get; set; }//ordedc_cab
+        public ApiRequestWMS? ApiRequestWMS { get; set; }//Información de Oracle WMS
         public string? FecEnt { get; set; }
         public string? FecCli { get; set; }
         public string? FecEntR { get; set; }

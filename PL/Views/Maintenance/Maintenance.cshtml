@@ -4,21 +4,42 @@
     ViewData["Title"] = "Consulta de SCN";
 }
 
-<div class="container-fluid mt-1 px-2">
-    <h2 class="mb-4 text-primary fw-bold">Consulta de Información por SCN</h2>
+@section Styles {
+    <link rel="stylesheet" href="~/css/maintenance.css" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" />
+}
 
-    <form asp-action="GetScnInfo" asp-controller="Maintenance" method="post" id="formScn" class="shadow-sm p-3 rounded-3 bg-white">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label for="numScn" class="form-label fw-semibold">Número SCN</label>
-                <input type="text" id="numScn" name="numScn" class="form-control" placeholder="Digita SCN" required />
-            </div>
+<div class="consulta">
+    @if (TempData["SuccessMessage"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["SuccessMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+    
+    @if (TempData["ErrorMessage"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["ErrorMessage"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
 
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i> Consultar
+    <form asp-action="GetScnInfo" asp-controller="Maintenance" method="post" id="formScn">
+        <div class="form-row">
+            <div class="form-field">
+                <label for="numScn" class="form-label">Sales check (16 digitos)</label>
+                <input type="text" id="numScn" name="numScn" class="form-control search-input" 
+                       placeholder="Ej.: 0103000252780723" required maxlength="16" 
+                       title="Presiona Enter para buscar" />
+                <button type="button" class="btn-clear" onclick="clearSalesCheck()" title="Borrar">
+                    <i class="bi bi-x"></i>
                 </button>
             </div>
+            <button type="submit" class="btn btn-primary search-button">
+                <i class="bi bi-search"></i>
+            </button>
         </div>
     </form>
     @*
@@ -35,12 +56,6 @@
             y tal vez en "ENVIADO" y 
             "EN PROCESO DE ENVIO"
         --Mostrar OrdRel como apartado "orden WMS""
-        --Mostrar fecha correcta
-        --No enviar datos 
-            vacios referencias, observaciones u 
-            numeros internos u externos al menos 
-            poner una x o un 0
-        --Panel Volado y MasGen solo aceptar N o S
         --Si InPlan es distinto de NO poner que 
             ya esta planeandose e impedir o al 
             usuario modificar fecha, si acaso solo
@@ -50,112 +65,1187 @@
             usuario modificar trae el dato de la carga
             de salida cuando esta en ruta 
     *@
-    <div id="resultado" class="mt-4">
+    <div id="resultado">
         @if (Model != null && Model.NumScn != null)
         {
-            <div class="card shadow-sm rounded-3">
-                <div class="card-body">
-                    <h5 class="fw-bold text-secondary mb-3">Datos Generales</h5>
-                    <div class="row">
-                        <div class="col-md-4"><strong>SCN:</strong> @Model.NumScn</div>
-                        <div class="col-md-4"><strong>Cliente:</strong> @(Model.NomCli ?? "-") @(Model.Ape1Cli ?? "") @(Model.Ape2Cli ?? "")</div>
-                        <div class="col-md-4"><strong>Orden Relacionada:</strong> @(Model.OrdRel ?? "-")</div>
-                    </div>
-
-                    <div class="row mt-2">
-                        <div class="col-md-4"><strong>Dirección:</strong> @(Model.Calle ?? "-") #@(Model.NumExt ?? "-")</div>
-                        <div class="col-md-4"><strong>Colonia:</strong> @(Model.Colonia ?? "-")</div>
-                        <div class="col-md-4"><strong>Municipio:</strong> @(Model.Municipio ?? "-"), @(Model.Estado ?? "-")</div>
-                    </div>
-
-                    <div class="row mt-2">
-                        <div class="col-md-4"><strong>Código Postal:</strong> @(Model.CodPos ?? "-")</div>
-                        <div class="col-md-4"><strong>Teléfonos:</strong> @(Model.TelCli ?? "-"), @(Model.TelCli1 ?? "-"), @(Model.TelCli2 ?? "-")</div>
-                        <div class="col-md-4"><strong>Estado 1:</strong> @(Model.Estado1 ?? "-")</div>
-                    </div>
-
-                    <div class="row mt-2">
-                        <div class="col-md-4"><strong>Panel:</strong> @(Model.Panel ?? "-")</div>
-                        <div class="col-md-4"><strong>Volado:</strong> @(Model.Volado ?? "-")</div>
-                        <div class="col-md-4"><strong>MasGen:</strong> @(Model.MasGen ?? "-")</div>
-                    </div>
-
-                    <div class="row mt-2">
-                        <div class="col-md-6"><strong>Observaciones:</strong> @(Model.Observaciones ?? "-")</div>
-                        <div class="col-md-6"><strong>Referencias:</strong> @(Model.Referencias ?? "-")</div>
-                    </div>
-
-                    @if (Model.Details != null && Model.Details.Any())
-                    {
-                        <hr />
-                        <h6 class="fw-bold text-secondary mb-2">Detalles</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>SKU</th>
-                                        <th>Piezas</th>
-                                        <th>Descripción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var d in Model.Details)
-                                    {
-                                        <tr>
-                                            <td>@d.Sku</td>
-                                            <td>@d.Piezas</td>
-                                            <td>@d.Descripcion</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+            <form asp-action="UpdateScnInfo" asp-controller="Maintenance" method="post" id="updateForm">
+                <script id="original-info" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model))</script>
+                <input type="hidden" id="ora-mantenimiento-exists" value="@(ViewBag.OraMantenimientoExists != null ? ViewBag.OraMantenimientoExists.ToString().ToLower() : "false")" />
+                <!-- Información del Cliente -->
+                <div class="client-form">
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Orden Relacionada</label>
+                            <input type="text" class="form-control" value="@(Model.OrdRel ?? "")" disabled />
                         </div>
-                    }
+                        <div class="form-field">
+                            <label class="form-label">Status</label>
+                            <input type="text" class="form-control" value="@(Model.Estado1 ?? "")" disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Orden WMS</label>
+                            <input type="text" class="form-control" value="@(Model.ApiRequestWMS?.IdEstatus.ToString() ?? "")" disabled />
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Teléfono</label>
+                            <input type="text" class="form-control" value="@(Model.TelCli ?? "")" disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" value="@(Model.NomCli ?? "")" disabled />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Apellido paterno</label>
+                            <input type="text" class="form-control" value="@(Model.Ape1Cli ?? "")" disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Apellido materno</label>
+                            <input type="text" class="form-control" value="@(Model.Ape2Cli ?? "")" disabled />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Teléfono de oficina</label>
+                            <input type="text" class="form-control" value="@(Model.TelCli1 ?? "")" disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Teléfono alterno</label>
+                            <input type="text" class="form-control" value="@(Model.TelCli2 ?? "")" disabled />
+                        </div>
+                    </div>
                 </div>
-            </div>
+
+                <!-- Información de Dirección -->
+                <div class="address-form">
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Código postal</label>
+                            <input type="text" class="form-control" id="codigo-postal" name="CodPos" value="@(Model.CodPos ?? "")" 
+                                   maxlength="5" pattern="[0-9]*" inputmode="numeric" />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Estado</label>
+                            <input type="text" class="form-control" id="estado-input" value="" disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Colonia</label>
+                            <select class="form-control" name="Colonia" id="colonia-select">
+                                @if (!string.IsNullOrEmpty(Model.Colonia))
+                                {
+                                    <option value="@Model.Colonia" selected>@Model.Colonia</option>
+                                }
+                                else
+                                {
+                                    <option value="">Seleccione una colonia</option>
+                                }
+                            </select>
+                            <input type="hidden" id="colonia-original" value="@(Model.Colonia ?? "")" />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Delegación/Municipio</label>
+                            <input type="text" class="form-control" id="municipio-input" value="@(Model.Municipio ?? "")" disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Calle</label>
+                            <input type="text" class="form-control" name="Calle" value="@(Model.Calle ?? "")" maxlength="50" />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Número exterior</label>
+                            <input type="text" class="form-control" name="NumExt" value="@(Model.NumExt ?? "")" maxlength="5" required />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Número interior</label>
+                            <input type="text" class="form-control" name="NumInt" value="@(Model.NumInt ?? "")" maxlength="5" />
+                        </div>
+                    </div>
+
+
+                    <div class="form-row referencias-background">
+                        <div class="form-field">
+                            <label class="form-label">Referencias</label>
+                            <input type="text" class="form-control" name="Referencias" value="@(Model.Referencias ?? "")" maxlength="50" required />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Información Adicional -->
+                <div class="additional-form">
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Fecha cliente</label>
+                            <div class="input-with-icon">
+                                <input type="date" class="form-control" id="fechaCliente" name="FechaCliente" min="@DateTime.Now.ToString("yyyy-MM-dd")"
+                                       value="@{
+                                           if (!string.IsNullOrEmpty(Model.FecEnt))
+                                           {
+                                               // Convert DD/MM/YYYY to YYYY-MM-DD for HTML date input
+                                               var parts = Model.FecEnt.Split('/');
+                                               if (parts.Length == 3)
+                                               {
+                                                   Write($"{parts[2]}-{parts[1]}-{parts[0]}");
+                                               }
+                                           }
+                                       }" />
+                                <i class="bi bi-calendar3" id="calendar-icon"></i>
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Panel</label>
+                            <select class="form-control" name="Panel">
+                                <option value="S" selected="@(Model.Panel == "S")">Si</option>
+                                <option value="N" selected="@(Model.Panel == "N")">No</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Volado</label>
+                            <select class="form-control" name="Volado">
+                                <option value="S" selected="@(Model.Volado == "S")">Si</option>
+                                <option value="N" selected="@(Model.Volado == "N")">No</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Más gente</label>
+                            <select class="form-control" name="MasGen">
+                                <option value="S" selected="@(Model.MasGen == "S")">Si</option>
+                                <option value="N" selected="@(Model.MasGen == "N")">No</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field">
+                            <label class="form-label">Longitud</label>
+                            <input type="text" class="form-control" 
+                                   value="@(string.IsNullOrEmpty(Model.Longitud) || Model.Longitud == "0" || Model.Longitud == "0.0" || Model.Longitud == "0.00" ? "" : Model.Longitud)" 
+                                   disabled />
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Latitud</label>
+                            <input type="text" class="form-control" 
+                                   value="@(string.IsNullOrEmpty(Model.Latitud) || Model.Latitud == "0" || Model.Latitud == "0.0" || Model.Latitud == "0.00" ? "" : Model.Latitud)" 
+                                   disabled />
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-field textarea-field">
+                            <label class="form-label">Observaciones</label>
+                            <textarea class="form-control" name="Observaciones" maxlength="200">@(Model.Observaciones ?? "")</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Detalles de Artículos -->
+                @if (Model.Details != null && Model.Details.Any())
+                {
+                    <div class="details-form">
+                        <div class="form-row">
+                            <div class="form-field textarea-field">
+                                <label class="form-label">Detalle de compra</label>
+                                <textarea class="form-control" readonly disabled>@{
+                                    var detailsText = "";
+                                    if (Model.Details != null && Model.Details.Any())
+                                    {
+                                        detailsText = string.Join("\n", Model.Details.Select(d => $"{d.Sku} - {d.Descripcion} (Piezas: {d.Piezas})"));
+                                    }
+                                }@detailsText</textarea>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Botón de Guardar -->
+                <div class="form-row button-row">
+                    
+                    <div class="slide-buttons-container">
+                        <label class="switch-label">
+                            <input type="checkbox" id="slideButton2" class="switch-input">
+                            <span class="switch-slider"></span>
+                            <span class="switch-text">Crb</span>
+                        </label>
+
+                        <label class="switch-label">
+                            <input type="checkbox" id="slideButton3" class="switch-input"
+                                   @(Model.IsConfirmed == "SI" ? "checked" : "")>
+                            <span class="switch-slider"></span>
+                            <span class="switch-text">Confirmado</span>
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary button-save">
+                        <i class="bi bi-save"></i>
+                        <span>Guardar y Enviar</span>
+                    </button>
+                </div>
+            </form>
         }
     </div>
 </div>
 
 @section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        document.getElementById("formScn").addEventListener("submit", async function (e) {
-            e.preventDefault();
-            const form = this;
-            const numScn = form.numScn.value.trim();
+        // Simulación: forzar una vez respuesta sin entregas disponibles hasta cerrar el diálogo
+        window.SIMULATE_NO_DELIVERIES_ONCE = false;
+        window.__overlayOpen = false;
 
-            if (!numScn) {
+        // Exponer el modelo original para enviarlo en el POST
+        window.originalInfo = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model ?? new ML.Maintenance.InfoByScn()));
+        
+        function clearSalesCheck() {
+            document.getElementById('numScn').value = '';
+            document.getElementById('numScn').focus();
+        }
+
+        function autoResize(textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = textarea.scrollHeight + 'px';
+        }
+
+        // Lógica para campo Volado y Más gente
+        function handleVoladoChange() {
+            const voladoSelect = document.querySelector('select[name="Volado"]');
+            const masGenSelect = document.querySelector('select[name="MasGen"]');
+            
+            if (voladoSelect && masGenSelect) {
+                if (voladoSelect.value === 'S') {
+                    masGenSelect.value = 'S';
+                    masGenSelect.style.backgroundColor = '#e9ecef';
+                    masGenSelect.disabled = true;
+                } else {
+                    masGenSelect.disabled = false;
+                    masGenSelect.style.backgroundColor = '';
+                }
+            }
+        }
+
+        // Función para buscar código postal y actualizar campos
+        async function buscarCodigoPostal() {
+            const codigoPostalInput = document.getElementById('codigo-postal');
+            const estadoInput = document.getElementById('estado-input');
+            const municipioInput = document.getElementById('municipio-input');
+            const coloniaSelect = document.getElementById('colonia-select');
+            
+            if (!codigoPostalInput) {
+                return;
+            }
+            
+            const codPosValue = codigoPostalInput.value.trim();
+            
+            // Validar que sea numérico y tenga 5 dígitos
+            if (!codPosValue || codPosValue.length !== 5 || !/^\d+$/.test(codPosValue)) {
                 Swal.fire({
-                    title: 'Campo vacío',
-                    text: 'Por favor, ingrese un número SCN.',
+                    title: 'Código postal inválido',
+                    text: 'Por favor, ingrese un código postal válido de 5 dígitos.',
                     icon: 'warning',
                     confirmButtonText: 'Aceptar'
                 });
                 return;
             }
+            
+            const apiUrl = `http://api-lg-cdt.sears.com.mx:8000/colonias?cp=${codPosValue}`;
+            
+            try {
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Error al consultar código postal');
+                }
+                
+                const data = await response.json();
+                const coloniasArray = data.colonias || [];
+                
+                // Verificar si hay resultados
+                if (!coloniasArray || coloniasArray.length === 0) {
+                    Swal.fire({
+                        title: 'Código postal no existente',
+                        text: 'No se encontraron colonias para el código postal ingresado.',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    
+                    // Limpiar campos
+                    if (estadoInput) estadoInput.value = '';
+                    if (municipioInput) municipioInput.value = '';
+                    if (coloniaSelect) {
+                        coloniaSelect.innerHTML = '<option value="">Seleccione una colonia</option>';
+                    }
+                    return;
+                }
+                
+                // Obtener los valores del primer registro (todos deberían tener el mismo estado y municipio)
+                const primeraColonia = coloniasArray[0];
+                
+                // Actualizar campos Estado y Municipio
+                if (estadoInput && primeraColonia.estado) {
+                    estadoInput.value = primeraColonia.estado;
+                }
+                if (municipioInput && primeraColonia.municipio) {
+                    municipioInput.value = primeraColonia.municipio;
+                }
+                
+                // Actualizar dropdown de colonias
+                if (coloniaSelect) {
+                    coloniaSelect.innerHTML = '';
+                    
+                    const coloniaOriginal = document.getElementById('colonia-original')?.value || '';
+                    let isSelected = false;
+                    
+                    coloniasArray.forEach((colonia) => {
+                        const option = document.createElement('option');
+                        const coloniaValue = colonia.colonia || '';
+                        option.value = coloniaValue;
+                        option.textContent = coloniaValue;
+                        
+                        // Si esta es la colonia original, marcarla como seleccionada
+                        if (coloniaOriginal && !isSelected && 
+                            option.value.toLowerCase() === coloniaOriginal.toLowerCase()) {
+                            option.selected = true;
+                            isSelected = true;
+                        }
+                        
+                        coloniaSelect.appendChild(option);
+                    });
+                    
+                    // Si no se seleccionó ninguna, hacer la primera en placeholder
+                    if (!isSelected && coloniaSelect.options.length > 0) {
+                        coloniaSelect.options[0].selected = true;
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error al buscar código postal:', error);
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error al conectar con el servicio: ' + error.message,
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+            }
+        }
 
-            const formData = new FormData(form);
+        async function loadColonias() {
+            const coloniaSelect = document.getElementById('colonia-select');
+            const coloniaOriginal = document.getElementById('colonia-original')?.value || '';
+            
+            if (!coloniaSelect) {
+                return;
+            }
+            
+            const codigoPostalInput = document.getElementById('codigo-postal');
+            const codPosValue = codigoPostalInput ? codigoPostalInput.value.trim() : '';
+            
+            if (!codPosValue) {
+                coloniaSelect.innerHTML = '<option value="">Código postal no disponible</option>';
+                return;
+            }
+            
+            const apiUrl = `http://api-lg-cdt.sears.com.mx:8000/colonias?cp=${codPosValue}`;
+            try {
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error('Error al cargar colonias');
+                }
+                const data = await response.json();
+                coloniaSelect.innerHTML = '';
+                
+                const coloniasArray = data.colonias || data;
+                
+                if (!coloniasArray || coloniasArray.length === 0) {
+                    coloniaSelect.innerHTML = '<option value="">No se encontraron colonias</option>';
+                    return;
+                }
+                let isSelected = false;
+                
+                coloniasArray.forEach((colonia, index) => {
+                    const option = document.createElement('option');
+                    const coloniaValue = colonia.colonia || colonia.nombre || colonia.name || colonia;
+                    option.value = coloniaValue;
+                    option.textContent = coloniaValue;
+                    
+                    // Si esta es la colonia original, marcarla como seleccionada
+                    if (coloniaOriginal && !isSelected && 
+                        (option.value.toLowerCase() === coloniaOriginal.toLowerCase() || 
+                         option.textContent.toLowerCase() === coloniaOriginal.toLowerCase())) {
+                        option.selected = true;
+                        isSelected = true;
+                    }
+                    
+                    coloniaSelect.appendChild(option);
+                });
+                
+                // Si no se seleccionó ninguna, hacer la primera en placeholder
+                if (!isSelected && coloniaSelect.options.length > 0) {
+                    coloniaSelect.options[0].selected = true;
+                }
+                
+            } catch (error) {
+                console.error('Error al cargar colonias:', error);
+                coloniaSelect.innerHTML = '<option value="">Error al cargar colonias</option>';
+            }
+        }
 
-            const response = await fetch(form.action, {
-                method: "POST",
-                body: formData
+        // Función para escapar HTML
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        // Función para mostrar respuesta en cuadro flotante
+        function showResponseOverlay(responseText) {
+            // Remover overlay existente si existe
+            const existingOverlay = document.getElementById('response-overlay');
+            if (existingOverlay) {
+                existingOverlay.remove();
+            }
+
+            // Crear overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'response-overlay';
+            overlay.className = 'response-overlay';
+            
+            overlay.innerHTML = `
+                <div class="response-container">
+                    <div class="response-header">
+                        <h3>${escapeHtml(responseText)}</h3>
+                        <button class="response-close" onclick="document.getElementById('response-overlay').remove()">×</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(overlay);
+            window.__overlayOpen = true;
+            
+            // Cerrar al hacer clic fuera del contenedor
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
+            // Cuando se remueva, marcar overlay como cerrado para permitir nueva validación
+            const observer = new MutationObserver(() => {
+                const stillThere = document.getElementById('response-overlay');
+                if (!stillThere) {
+                    window.__overlayOpen = false;
+                    observer.disconnect();
+                }
+            });
+            observer.observe(document.body, { childList: true });
+        }
+
+        // Función para validar fecha con el servicio SOAP
+        async function validateFechaCliente(fecha) {
+            if (!fecha) {
+                return;
+            }
+            
+            // Extraer valores necesarios
+            const numScn = document.querySelector('input[name="NumScn"]')?.value || '';
+            const voladoSelect = document.querySelector('select[name="Volado"]');
+            const voladoValue = voladoSelect ? voladoSelect.value : '1';
+            const fechaClienteInput = document.getElementById('fechaCliente');
+            
+            // Formatear fecha de YYYY-MM-DD a DD/MM/YYYY
+            const [year, month, day] = fecha.split('-');
+            const fechaFormateada = `${day}/${month}/${year}`;
+            
+            // Simulación: forzar false solo una vez y hasta cerrar el diálogo
+            if (window.SIMULATE_NO_DELIVERIES_ONCE === true && window.__overlayOpen === false) {
+                showResponseOverlay(`Sin entregas disponibles para ${fechaFormateada}`);
+                if (fechaClienteInput) {
+                    const currentDate = new Date(`${fecha}T00:00:00`);
+                    if (!isNaN(currentDate.getTime())) {
+                        // Avanzar un día y saltar domingo
+                        currentDate.setDate(currentDate.getDate() + 1);
+                        if (currentDate.getDay() === 0) {
+                            currentDate.setDate(currentDate.getDate() + 1); // pasar a lunes
+                        }
+                        const nextY = currentDate.getFullYear();
+                        const nextM = String(currentDate.getMonth() + 1).padStart(2, '0');
+                        const nextD = String(currentDate.getDate()).padStart(2, '0');
+                        const nextStr = `${nextY}-${nextM}-${nextD}`;
+                        if (window.fechaClientePicker && typeof window.fechaClientePicker.setDate === 'function') {
+                            window.fechaClientePicker.setDate(nextStr, false, 'Y-m-d');
+                        } else {
+                            fechaClienteInput.value = nextStr;
+                        }
+                    }
+                }
+                return;
+            }
+            
+            const soapBody = `<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:tem="http://tempuri.org/">
+    <soapenv:Header/>
+    <soapenv:Body>
+        <ValidarTopeEntrega xmlns="http://ws_mercaderias/">
+            <usuario>vpaleta</usuario>
+            <password>vpaleta</password>
+            <scnEntrada>
+                <NumEdc>${window.numEdc}</NumEdc>
+                <CodPto>105</CodPto>
+                <FechaCliente>${fechaFormateada}</FechaCliente>
+                <ConfirmarActualizacion>0</ConfirmarActualizacion>
+                <SCN>${numScn}</SCN>
+                <TipoEntrega>${voladoValue === 'S' ? '1' : '2'}</TipoEntrega>
+            </scnEntrada>
+        </ValidarTopeEntrega>
+    </soapenv:Body>
+</soapenv:Envelope>`;
+            
+            try {
+                const response = await fetch('http://api-lg-cdt.sears.com.mx:5432/ws_mercaderias.asmx', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'text/xml; charset=utf-8',
+                        'SOAPAction': 'http://ws_mercaderias/ValidarTopeEntrega'
+                    },
+                    body: soapBody
+                });
+                
+                const responseText = await response.text();
+                
+                // Parsear el XML de respuesta
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(responseText, 'text/xml');
+                let validarTopeEntregaResult = null;
+                
+                // Intentar diferentes formas de encontrar el elemento
+                const resultElements = xmlDoc.getElementsByTagName('ValidarTopeEntregaResult');
+                if (resultElements.length > 0) {
+                    validarTopeEntregaResult = resultElements[0].textContent.trim();
+                } else {
+                    // Buscar en el body directamente
+                    const body = xmlDoc.getElementsByTagName('Body')[0];
+                    if (body) {
+                        const result = body.querySelector('ValidarTopeEntregaResult') || 
+                                      body.querySelector('*[local-name()="ValidarTopeEntregaResult"]');
+                        if (result) {
+                            validarTopeEntregaResult = result.textContent.trim();
+                        }
+                    }
+                }
+                
+                // Convertir a booleano (puede venir como "false", "true", false, true, "0", "1")
+                const isResultFalse = validarTopeEntregaResult !== null && 
+                                    (validarTopeEntregaResult.toLowerCase() === 'false' || 
+                                     validarTopeEntregaResult === '0' || 
+                                     validarTopeEntregaResult === false);
+                
+                // Solo mostrar el mensaje si ValidarTopeEntregaResult es false
+                if (isResultFalse) {
+                    showResponseOverlay(`Sin entregas disponibles para ${fechaFormateada}`);
+                    // Sumar un día en el calendario para sugerir la siguiente fecha disponible
+                    if (fechaClienteInput) {
+                        const currentDate = new Date(`${fecha}T00:00:00`);
+                        if (!isNaN(currentDate.getTime())) {
+                            // Avanzar un día y saltar domingo
+                            currentDate.setDate(currentDate.getDate() + 1);
+                            if (currentDate.getDay() === 0) {
+                                currentDate.setDate(currentDate.getDate() + 1);
+                            }
+                            const nextY = currentDate.getFullYear();
+                            const nextM = String(currentDate.getMonth() + 1).padStart(2, '0');
+                            const nextD = String(currentDate.getDate()).padStart(2, '0');
+                            const nextStr = `${nextY}-${nextM}-${nextD}`;
+                            if (window.fechaClientePicker && typeof window.fechaClientePicker.setDate === 'function') {
+                                window.fechaClientePicker.setDate(nextStr, false, 'Y-m-d');
+                            } else {
+                                fechaClienteInput.value = nextStr;
+                            }
+                        }
+                    }
+                }
+                
+            } catch (error) {
+                console.error('Error al validar fecha:', error);
+                showResponseOverlay('Error al conectar con el servicio: ' + error.message);
+            }
+        }
+
+        // Función para validar y deshabilitar botón según condiciones
+        function validateSubmitButton() {
+            const oraMantenimientoExists = document.getElementById('ora-mantenimiento-exists');
+            const submitButton = document.querySelector('.button-save');
+            
+            if (!submitButton) return;
+            
+            let shouldDisable = false;
+            const disableReasons = [];
+            
+            // Verificar ora_mantenimiento
+            if (oraMantenimientoExists) {
+                const exists = oraMantenimientoExists.value === 'true';
+                if (!exists) {
+                    shouldDisable = true;
+                    disableReasons.push('No confirmar - No encontrado');
+                }
+            }
+            
+            // Verificar InPlan e InRoute
+            if (window.originalInfo) {
+                const inPlan = window.originalInfo.InPlan || '';
+                const inRoute = window.originalInfo.InRoute || '';
+                
+                if (inPlan !== 'NO' && inPlan !== '') {
+                    shouldDisable = true;
+                    disableReasons.push('No confirmar - En plan');
+                }
+                
+                if (inRoute !== 'NO' && inRoute !== '') {
+                    shouldDisable = true;
+                    disableReasons.push('No confirmar - En ruta');
+                }
+            }
+            
+            // Aplicar estado al botón
+            if (shouldDisable) {
+                submitButton.disabled = true;
+                submitButton.setAttribute('aria-disabled', 'true');
+                
+                // Eliminar alertas anteriores
+                const existingAlerts = document.querySelectorAll('.alert.alert-warning');
+                existingAlerts.forEach(alert => {
+                    if (alert.textContent.includes('No confirmar')) {
+                        alert.remove();
+                    }
+                });
+                
+                // Mostrar mensajes de alerta
+                const disableReason = disableReasons.join('<br>');
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-warning alert-dismissible fade show';
+                alertDiv.setAttribute('role', 'alert');
+                alertDiv.innerHTML = `
+                    ${disableReason}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                const resultadoDiv = document.getElementById('resultado');
+                if (resultadoDiv && resultadoDiv.firstChild) {
+                    resultadoDiv.insertBefore(alertDiv, resultadoDiv.firstChild);
+                }
+            } else {
+                submitButton.disabled = false;
+                submitButton.removeAttribute('aria-disabled');
+                // Eliminar alertas de deshabilitación
+                const alerts = document.querySelectorAll('.alert.alert-warning');
+                alerts.forEach(alert => {
+                    if (alert.textContent.includes('No confirmar')) {
+                        alert.remove();
+                    }
+                });
+            }
+        }
+
+        // Función para inicializar los componentes
+        function initializeComponents() {
+            // Aplicar auto-resize a todos los textareas
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(textarea => {
+                autoResize(textarea);
+            });
+
+            // Validar botón en carga inicial
+            validateSubmitButton();
+
+            // Configurar la lógica del campo Volado
+            const voladoSelect = document.querySelector('select[name="Volado"]');
+            if (voladoSelect) {
+                voladoSelect.removeEventListener('change', handleVoladoChange); // Remover listener anterior si existe
+                voladoSelect.addEventListener('change', handleVoladoChange);
+                handleVoladoChange();
+            }
+            
+            // Configurar campo de código postal
+            const codigoPostalInput = document.getElementById('codigo-postal');
+            if (codigoPostalInput) {
+                // Validar que solo se ingresen números
+                codigoPostalInput.addEventListener('input', function(e) {
+                    const value = e.target.value.replace(/[^0-9]/g, '');
+                    if (value.length > 5) {
+                        e.target.value = value.substring(0, 5);
+                    } else {
+                        e.target.value = value;
+                    }
+                });
+                
+                // Ejecutar búsqueda al presionar Enter
+                codigoPostalInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        buscarCodigoPostal();
+                    }
+                });
+                
+                // Si hay código postal válido al cargar, buscar automáticamente para actualizar Estado y Municipio
+                const codPosValue = codigoPostalInput.value.trim();
+                if (codPosValue && codPosValue.length === 5 && /^\d+$/.test(codPosValue)) {
+                    // Buscar automáticamente al cargar si hay código postal válido
+                    buscarCodigoPostal();
+                }
+            }
+            
+            // Cargar colonias cuando se abre el dropdown
+            const coloniaSelect = document.getElementById('colonia-select');
+            if (coloniaSelect) {
+                let hasLoadedFromApi = false;
+                
+                // Evento para cuando se abre el select
+                coloniaSelect.addEventListener('focus', function() {
+                    if (!hasLoadedFromApi) {
+                        hasLoadedFromApi = true;
+                        loadColonias();
+                    }
+                });
+                
+                coloniaSelect.addEventListener('click', function() {
+                    if (!hasLoadedFromApi) {
+                        hasLoadedFromApi = true;
+                        loadColonias();
+                    }
+                });
+            }
+            
+            const fechaClienteInput = document.getElementById('fechaCliente');
+            if (fechaClienteInput) {
+                const newInput = fechaClienteInput.cloneNode(true);
+                const inputContainer = fechaClienteInput.closest('.input-with-icon');
+                fechaClienteInput.parentNode.replaceChild(newInput, fechaClienteInput);
+                const defaultDate = newInput.value || null;
+
+                const fp = flatpickr(newInput, {
+                    dateFormat: 'Y-m-d',
+                    minDate: 'today',
+                    defaultDate: defaultDate,
+                    allowInput: true,
+                    disable: [
+                        function(date) {
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            return date.getDay() === 0 || date < today;
+                        }
+                    ],
+                    onDayCreate: function(selectedDates, dateStr, dayElem) {
+                        try {
+                            const date = dayElem.dateObj;
+                            if (!date) return;
+                            const today = new Date();
+                            today.setHours(0,0,0,0);
+                            const isSunday = date.getDay() === 0;
+                            const isPast = date < today;
+                            if (isSunday || isPast) {
+                                dayElem.classList.add('flatpickr-disabled');
+                                if (isSunday) dayElem.classList.add('sunday-disabled');
+                                dayElem.setAttribute('aria-disabled', 'true');
+                                dayElem.removeAttribute('tabindex');
+                            }
+                        } catch (_) { /* no-op */ }
+                    },
+                    onReady: function(selectedDates, dateStr, instance) {
+                        applyDisabledDayStyles(instance);
+                        window.fechaClientePicker = instance;
+                        
+                        // Agregar evento click al icono del calendario para abrir el picker
+                        setTimeout(() => {
+                            const calendarIcon = inputContainer ? inputContainer.querySelector('#calendar-icon') : document.getElementById('calendar-icon');
+                            if (calendarIcon && !calendarIcon.hasAttribute('data-calendar-click-attached')) {
+                                calendarIcon.setAttribute('data-calendar-click-attached', 'true');
+                                calendarIcon.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (instance && typeof instance.open === 'function') {
+                                        instance.open();
+                                    }
+                                });
+                            }
+                        }, 100);
+                    },
+                    onMonthChange: function(selectedDates, dateStr, instance) {
+                        applyDisabledDayStyles(instance);
+                    },
+                    onYearChange: function(selectedDates, dateStr, instance) {
+                        applyDisabledDayStyles(instance);
+                    },
+                    onOpen: function(selectedDates, dateStr, instance) {
+                        applyDisabledDayStyles(instance);
+                    },
+                    onValueUpdate: function(selectedDates, dateStr, instance) {
+                        applyDisabledDayStyles(instance);
+                    },
+                    onChange: function(selectedDates, dateStr) {
+                        if (dateStr) {
+                            validateFechaCliente(dateStr);
+                        }
+                    }
+                });
+                window.fechaClientePicker = fp;
+
+                function applyDisabledDayStyles(instance) {
+                    setTimeout(() => {
+                        const days = instance?.calendarContainer?.querySelectorAll('.flatpickr-day');
+                        if (!days) return;
+                        const today = new Date();
+                        today.setHours(0,0,0,0);
+                        days.forEach(d => {
+                            try {
+                                const date = d.dateObj;
+                                if (!date) return;
+                                const isSunday = date.getDay && date.getDay() === 0;
+                                const isPast = date < today;
+                                if (isSunday || isPast) {
+                                    d.classList.add('flatpickr-disabled');
+                                    if (isSunday) d.classList.add('sunday-disabled');
+                                    d.setAttribute('aria-disabled', 'true');
+                                    d.removeAttribute('tabindex');
+                                } else {
+                                    d.classList.remove('sunday-disabled');
+                                }
+                            } catch (_) { /* no-op */ }
+                        });
+                    }, 0);
+                }
+            }
+        }
+
+        // Función para configurar el formulario de búsqueda
+        function setupSearchForm() {
+            const formScn = document.getElementById("formScn");
+            if (formScn && !formScn.hasAttribute('data-listener-attached')) {
+                formScn.setAttribute('data-listener-attached', 'true');
+                formScn.addEventListener("submit", async function (e) {
+                    e.preventDefault();
+                    const form = this;
+                    const numScn = form.numScn.value.trim();
+
+                    // Limpiar mensajes previos
+                    const existingAlerts = document.querySelectorAll('.alert');
+                    existingAlerts.forEach(a => a.remove());
+
+                    if (!numScn) {
+                        Swal.fire({
+                            title: 'Campo vacío',
+                            text: 'Por favor, ingrese un número SCN.',
+                            icon: 'warning',
+                            confirmButtonText: 'Aceptar'
+                        });
+                        return;
+                    }
+
+                    const formData = new FormData(form);
+
+                    const response = await fetch(form.action, {
+                        method: "POST",
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        Swal.fire({
+                            title: 'SCN no consultado',
+                            text: errorText,
+                            icon: 'warning',
+                            confirmButtonText: 'Aceptar'
+                        }).then(() => {
+                            // Limpiar el formulario después de cerrar el modal
+                            document.getElementById('numScn').value = '';
+                            document.getElementById('resultado').innerHTML = '';
+                        });
+                        return;
+                    }
+
+                    const html = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(html, 'text/html');
+                    const newResultado = doc.getElementById('resultado');
+                    
+                    if (newResultado) {
+                        const numEdcScript = doc.querySelector('script');
+                        if (numEdcScript && numEdcScript.textContent.includes('window.numEdc')) {
+                            const match = numEdcScript.textContent.match(/window\.numEdc\s*=\s*['"](.*?)['"]/);
+                            if (match && match[1]) {
+                                window.numEdc = match[1];
+                            }
+                        }
+                        
+                        document.getElementById('resultado').innerHTML = newResultado.innerHTML;
+                        try {
+                            const embedded = document.getElementById('original-info');
+                            if (embedded && embedded.textContent) {
+                                window.originalInfo = JSON.parse(embedded.textContent);
+                            }
+                        } catch (e) {
+                            console.error('Error al parsear original-info:', e);
+                        }
+                        
+                        // Validar botón después de búsqueda (incluye ora_mantenimiento, InPlan e InRoute)
+                        validateSubmitButton();
+                        
+                        initializeComponents();
+                        setupSearchForm();
+                        setupUpdateForm();
+                    }
+                });
+            }
+        }
+
+        // Función para configurar el formulario de actualización
+        function setupUpdateForm() {
+            const updateForm = document.getElementById("updateForm");
+            
+            if (!updateForm) {
+                console.error('Formulario updateForm no encontrado');
+                return;
+            }
+            
+            if (updateForm.hasAttribute('data-listener-attached')) {
+                return; // Ya tiene listener
+            }
+            
+            updateForm.setAttribute('data-listener-attached', 'true');
+            
+            // Agregar listener al botón directamente
+            const submitButton = updateForm.querySelector('.button-save');
+            if (submitButton) {
+                submitButton.addEventListener('click', async function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    if (this.disabled) {
+                        console.log('Botón deshabilitado, no se puede enviar');
+                        return;
+                    }
+                    
+                    await handleFormSubmit(updateForm, this);
+                }, { capture: true });
+            }
+            
+            // También agregar listener al formulario por si acaso
+            updateForm.addEventListener("submit", async function (e) {
+                e.preventDefault();
+                
+                const currentButton = document.querySelector('.button-save');
+                if (currentButton && currentButton.disabled) {
+                    console.log('Botón deshabilitado, no se puede enviar');
+                    return;
+                }
+                
+                await handleFormSubmit(updateForm, currentButton);
+            });
+        }
+        
+        // Función para manejar el envío del formulario
+        async function handleFormSubmit(updateForm, submitButton) {
+            console.log('handleFormSubmit ejecutado');
+            
+            // Validar campos requeridos
+            const numExt = document.querySelector('input[name="NumExt"]');
+            const referencias = document.querySelector('input[name="Referencias"]');
+            
+            if (!numExt || !numExt.value.trim()) {
                 Swal.fire({
-                    title: 'SCN no consultado',
-                    text: errorText,
+                    title: 'Campo requerido',
+                    text: 'El número exterior es obligatorio.',
                     icon: 'warning',
                     confirmButtonText: 'Aceptar'
                 });
                 return;
             }
+            
+            if (!referencias || !referencias.value.trim()) {
+                Swal.fire({
+                    title: 'Campo requerido',
+                    text: 'Las referencias son obligatorias.',
+                    icon: 'warning',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+            
+            // Capturar el estado de los slide buttons
+            const slideButton2 = document.getElementById('slideButton2');
+            const slideButton3 = document.getElementById('slideButton3');
+            
+            // Obtener valores del formulario (incluyendo campos disabled)
+            const numScn = window.originalInfo?.NumScn || '';
+            const calle = document.querySelector('input[name="Calle"]')?.value || '';
+            const numExtValue = numExt?.value?.trim() || '';
+            const numInt = document.querySelector('input[name="NumInt"]')?.value || '';
+            const referenciasValue = referencias?.value?.trim() || '';
+            const observaciones = document.querySelector('textarea[name="Observaciones"]')?.value || '';
+            const colonia = document.querySelector('select[name="Colonia"]')?.value || '';
+            const panel = document.querySelector('select[name="Panel"]')?.value || '';
+            const volado = document.querySelector('select[name="Volado"]')?.value || '';
+            const masGen = document.querySelector('select[name="MasGen"]')?.value || '';
+            const fechaCliente = document.getElementById('fechaCliente')?.value || '';
+            
+            // Obtener código postal directamente del input (ya no está disabled)
+            const codPosValue = document.getElementById('codigo-postal')?.value?.trim() || '';
+            
+            const getDisabledValue = (labelText) => {
+                const formFields = Array.from(document.querySelectorAll('.form-field'));
+                for (const field of formFields) {
+                    const label = field.querySelector('label.form-label');
+                    if (label && label.textContent.trim() === labelText) {
+                        const disabledInput = field.querySelector('input[disabled], select[disabled]');
+                        return disabledInput ? (disabledInput.value || '') : '';
+                    }
+                }
+                return '';
+            };
+            
+            const estadoValue = getDisabledValue('Estado');
+            const municipioValue = getDisabledValue('Delegación/Municipio');
+            
+            // Longitud y Latitud pueden estar vacías o ser "0"
+            let longitudValue = getDisabledValue('Longitud');
+            if (longitudValue === '0' || longitudValue === '0.0' || longitudValue === '0.00') {
+                longitudValue = '';
+            }
+            
+            let latitudValue = getDisabledValue('Latitud');
+            if (latitudValue === '0' || latitudValue === '0.0' || latitudValue === '0.00') {
+                latitudValue = '';
+            }
+            
+            // Convertir fecha de YYYY-MM-DD a DD/MM/YYYY
+            let fecEnt = '';
+            if (fechaCliente) {
+                const dateParts = fechaCliente.split('-');
+                if (dateParts.length === 3) {
+                    fecEnt = `${dateParts[2]}/${dateParts[1]}/${dateParts[0]}`;
+                }
+            }
+            
+            // Incluir todos los campos, incluso si están vacíos
+            const confirmedInfo = {
+                NumScn: numScn,
+                Calle: calle || '',
+                NumExt: numExtValue || '',
+                NumInt: numInt || '',
+                Referencias: referenciasValue || '',
+                Observaciones: observaciones || '',
+                Colonia: colonia || '',
+                Panel: panel || '',
+                Volado: volado || '',
+                MasGen: masGen || '',
+                FecEnt: fecEnt || '',
+                Municipio: municipioValue || '',
+                Estado: estadoValue || '',
+                CodPos: codPosValue || '',
+                Longitud: longitudValue || '',
+                Latitud: latitudValue || '',
+                IsCrb: slideButton2 ? slideButton2.checked : false,
+                IsConfirmed: slideButton3 ? slideButton3.checked : false
+            };
 
-            const html = await response.text();
-            document.open();
-            document.write(html);
-            document.close();
-        });
+            // Adjuntar originalInfo del render
+            const originalInfo = window.originalInfo || {};
+            
+            // Mostrar indicador de carga
+            if (submitButton) {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<i class="bi bi-hourglass-split"></i><span>Procesando...</span>';
+            }
+            
+            // Mostrar mensaje de carga
+            Swal.fire({
+                title: 'Actualizando información',
+                text: 'Por favor espere mientras se procesa la información...',
+                icon: 'info',
+                allowOutsideClick: false,
+                showConfirmButton: false,
+                didOpen: () => {
+                    Swal.showLoading();
+                }
+            });
+            
+            try {
+                // Enviar objeto como JSON
+                const response = await fetch(updateForm.action, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ confirmedInfo, originalInfo })
+                });
+                
+                const result = await response.json();
+                
+                // Cerrar modal de carga
+                Swal.close();
+                
+                if (response.ok && result.success) {
+                    Swal.fire({
+                        title: 'Éxito',
+                        text: result.message || 'Información actualizada correctamente',
+                        icon: 'success',
+                        confirmButtonText: 'Aceptar'
+                    }).then(() => {
+                        // Recargar la página para mostrar la información actualizada
+                        window.location.reload();
+                    });
+                } else {
+                    Swal.fire({
+                        title: 'Error',
+                        text: result.message || 'Error al actualizar la información',
+                        icon: 'error',
+                        confirmButtonText: 'Aceptar'
+                    });
+                    
+                    // Restaurar botón
+                    if (submitButton) {
+                        submitButton.disabled = false;
+                        submitButton.innerHTML = '<i class="bi bi-save"></i><span>Guardar y Enviar</span>';
+                    }
+                }
+            } catch (error) {
+                Swal.close();
+                Swal.fire({
+                    title: 'Error',
+                    text: 'Error de conexión: ' + error.message,
+                    icon: 'error',
+                    confirmButtonText: 'Aceptar'
+                });
+                
+                // Restaurar botón
+                if (submitButton) {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = '<i class="bi bi-save"></i><span>Guardar y Enviar</span>';
+                }
+            }
+        }
+
+        // Inicializar al cargar la página
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                initializeComponents();
+                setupSearchForm();
+                setupUpdateForm();
+            });
+        } else {
+            initializeComponents();
+            setupSearchForm();
+            setupUpdateForm();
+        }
     </script>
 }

@@ -84,7 +84,7 @@
                         </div>
                         <div class="form-field">
                             <label class="form-label">Orden WMS</label>
-                            <input type="text" class="form-control" value="@(Model.ApiRequestWMS?.IdEstatus.ToString() ?? "")" disabled />
+                            <input type="text" class="form-control" value="@(Model.ApiRequestWMS != null ? (Model.ApiRequestWMS.Successes ? Model.ApiRequestWMS.IdEstatus.ToString() : "No encontrado") : "")" disabled />
                         </div>
                     </div>
                     <div class="form-row">

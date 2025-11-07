@@ -61,7 +61,8 @@ namespace BL.Menu
                 new("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"),
                 new("BaseControl", "BaseControl", "BaseControl", "bi-clipboard-check"),
                 new("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"),
-                new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt")
+                new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt"),
+                new("Carta Porte", "CartaPorteLga", "Index", "bi-file-earmark-text")
 
             };
         }

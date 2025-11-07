@@ -397,6 +397,18 @@ namespace BL.Maintenance
                     else
                     {
                         System.Console.WriteLine($"[BL] GetOracleWMSInfo - Error al hacer la petición: {(int)response.StatusCode} - {response.ReasonPhrase}");
+                        
+                        // Si es 404, devolver objeto con mensaje "No encontrado"
+                        if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                        {
+                            ML.Maintenance.ApiRequestWMS apiRequestError = new ML.Maintenance.ApiRequestWMS();
+                            apiRequestError.Successes = false;
+                            apiRequestError.OrderNumber = orderNumber;
+                            apiRequestError.IdEstatus = 0;
+                            apiRequestError.DescEstatus = "No encontrado";
+                            apiRequestError.EnvioBloqueado = false;
+                            return apiRequestError;
+                        }
                     }
                 }
             }

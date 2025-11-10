@@ -1,0 +1,312 @@
+﻿@{
+    ViewData["Title"] = "Asignar Operador y Unidad";
+    var folio = ViewBag.Folio as string ?? "";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/cartaporte.css" />
+}
+
+<div class="asignar">
+    <form id="asignForm">
+        <div id="progressBar" class="progress" style="display: none;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+                <label for="foliosearched" class="form-label">Folio de conocimiento</label>
+                <input type="text" id="foliosearched" name="foliosearched" class="form-control" value="@folio" readonly />
+            </div>
+            <button type="button" class="btn btn-primary button-asign" id="btnAsignar"
+                    style="display: flex; justify-content: center; margin-top: 0; height: 100%; width: 80px;"
+                    aria-label="Asignar" title="Generar ID Carta Porte" disabled>
+                <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+        <div class="form-row">
+            <div class="selection-container">
+                <div class="label-with-search">
+                    <input type="search" id="operadorSearch" class="search-input"
+                           placeholder="Seleccionar o buscar operador" />
+                </div>
+                <div class="operadores-list" id="operadoresList"></div>
+            </div>
+            <div class="selection-container">
+                <div class="label-with-search">
+                    <input type="search" id="unidadSearch" class="search-input"
+                           placeholder="Seleccionar o buscar unidad" />
+                </div>
+                <div class="unidades-list" id="unidadesList"></div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- Modal para errores -->
+<div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="errorModalLabel">No se generó el ID</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="errorModalBody" style="max-height: 400px; overflow-y: auto;">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let operarios = [];
+        let operadoresFiltrados = [];
+        let camiones = [];
+        let camionesFiltrados = [];
+        let operadorSeleccionado = '';
+        let camionSeleccionado = '';
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const folio = '@folio';
+            if (folio) {
+                loadOperadores();
+                loadUnidades();
+            }
+
+            document.getElementById('operadorSearch').addEventListener('input', function(event) {
+                filterOperadores(event.target.value);
+            });
+
+            document.getElementById('unidadSearch').addEventListener('input', function(event) {
+                filterUnidades(event.target.value);
+            });
+
+            document.getElementById('btnAsignar').addEventListener('click', asignarOperadorYUnidad);
+        });
+
+        function loadOperadores() {
+            document.getElementById('progressBar').style.display = 'block';
+            operarios = [];
+            operadoresFiltrados = [];
+
+            fetch('/api/operadoresLga')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al cargar operadores');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    operarios = data.map(item => item.nom_ope);
+                    operadoresFiltrados = [...operarios];
+                    renderOperadores();
+                    document.getElementById('progressBar').style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error loading operadores:', error);
+                    document.getElementById('progressBar').style.display = 'none';
+                });
+        }
+
+        function loadUnidades() {
+            document.getElementById('progressBar').style.display = 'block';
+            camiones = [];
+            camionesFiltrados = [];
+
+            fetch('/api/unidadesLga')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Error al cargar unidades');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    camiones = data.map(item => item.num_eco);
+                    camionesFiltrados = [...camiones];
+                    renderUnidades();
+                    document.getElementById('progressBar').style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error loading unidades:', error);
+                    document.getElementById('progressBar').style.display = 'none';
+                });
+        }
+
+        function filterOperadores(searchTerm) {
+            if (!searchTerm || searchTerm.trim() === '') {
+                operadoresFiltrados = [...operarios];
+            } else {
+                const term = searchTerm.toLowerCase().trim();
+                operadoresFiltrados = operarios.filter(operador =>
+                    operador.toLowerCase().includes(term)
+                );
+            }
+            renderOperadores();
+        }
+
+        function filterUnidades(searchTerm) {
+            if (!searchTerm || searchTerm.trim() === '') {
+                camionesFiltrados = [...camiones];
+            } else {
+                const term = searchTerm.toLowerCase().trim();
+                camionesFiltrados = camiones.filter(unidad =>
+                    unidad.toLowerCase().includes(term)
+                );
+            }
+            renderUnidades();
+        }
+
+        function renderOperadores() {
+            const container = document.getElementById('operadoresList');
+            container.innerHTML = '';
+            operadoresFiltrados.forEach(operador => {
+                const div = document.createElement('div');
+                div.className = 'operador-item' + (operadorSeleccionado === operador ? ' selected' : '');
+                div.textContent = operador;
+                div.addEventListener('click', () => selectOperador(operador));
+                container.appendChild(div);
+            });
+        }
+
+        function renderUnidades() {
+            const container = document.getElementById('unidadesList');
+            container.innerHTML = '';
+            camionesFiltrados.forEach(unidad => {
+                const div = document.createElement('div');
+                div.className = 'unidad-item' + (camionSeleccionado === unidad ? ' selected' : '');
+                div.textContent = unidad;
+                div.addEventListener('click', () => selectUnidad(unidad));
+                container.appendChild(div);
+            });
+        }
+
+        function selectOperador(operador) {
+            operadorSeleccionado = operador;
+            renderOperadores();
+            updateAsignarButton();
+        }
+
+        function selectUnidad(unidad) {
+            camionSeleccionado = unidad;
+            renderUnidades();
+            updateAsignarButton();
+        }
+
+        function updateAsignarButton() {
+            document.getElementById('btnAsignar').disabled = !operadorSeleccionado || !camionSeleccionado;
+        }
+
+        function formatDateToISOInTimeZone(date, timeZone) {
+            const parts = new Intl.DateTimeFormat("en-US", {
+                timeZone,
+                hour12: false,
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                fractionalSecondDigits: 3,
+            }).formatToParts(date);
+
+            const dateParts = {};
+            parts.forEach(({ type, value }) => {
+                dateParts[type] = value;
+            });
+
+            return `${dateParts['year']}-${dateParts['month']}-${dateParts['day']}T${dateParts['hour']}:${dateParts['minute']}:${dateParts['second']}.${dateParts['fractionalSecond'] || "000"}`;
+        }
+
+        function removeDuplicateLines(message) {
+            const messageStr = typeof message === 'string' ? message : String(message);
+            const lines = messageStr.split('\n');
+            const uniqueLines = [...new Set(lines)];
+            return uniqueLines.join('\n');
+        }
+
+        function asignarOperadorYUnidad() {
+            if (!operadorSeleccionado || !document.getElementById('foliosearched').value) {
+                return;
+            }
+
+            document.getElementById('progressBar').style.display = 'block';
+            document.getElementById('btnAsignar').disabled = true;
+
+            const now = new Date();
+            const fechaSalidaCDTString = formatDateToISOInTimeZone(now, "America/Mexico_City");
+
+            const requestData = {
+                folio: document.getElementById('foliosearched').value,
+                operador: operadorSeleccionado.trim(),
+                unidad: camionSeleccionado.trim(),
+                fechaSalida: fechaSalidaCDTString
+            };
+
+            fetch('/api/enviarCarta', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => Promise.reject({ status: response.status, error: err }));
+                }
+                return response.json();
+            })
+            .then(data => {
+                document.getElementById('progressBar').style.display = 'none';
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Éxito',
+                    text: data.message || 'ID generado correctamente',
+                    confirmButtonText: 'Aceptar',
+                    allowOutsideClick: true,
+                    allowEscapeKey: true
+                }).then((result) => {
+                    // Redirigir siempre que se cierre el diálogo (clic en Aceptar, fuera, o ESC)
+                    window.location.href = '@Url.Action("Index", "CartaPorte")';
+                });
+            })
+            .catch(error => {
+                document.getElementById('progressBar').style.display = 'none';
+                document.getElementById('btnAsignar').disabled = false;
+
+                if (error.status === 500) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al generar Id',
+                        confirmButtonText: 'Aceptar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '@Url.Action("Index", "CartaPorte")';
+                        }
+                    });
+                } else if (error.status === 400) {
+                    const rawMessage = error.error?.errors?.message;
+                    const messageStr = Array.isArray(rawMessage) ? rawMessage.join('\n') : String(rawMessage);
+                    const cleanMessage = removeDuplicateLines(messageStr);
+
+                    // Reemplazar saltos de línea con <br> para mejor visualización
+                    const formattedMessage = cleanMessage.split('\n').map(line => {
+                        const div = document.createElement('div');
+                        div.textContent = line;
+                        return div.innerHTML;
+                    }).join('<br>');
+
+                    document.getElementById('errorModalBody').innerHTML = formattedMessage;
+                    const modal = new bootstrap.Modal(document.getElementById('errorModal'));
+                    modal.show();
+
+                    document.getElementById('errorModal').addEventListener('hidden.bs.modal', function() {
+                        window.location.href = '@Url.Action("Index", "CartaPorte")';
+                    }, { once: true });
+                }
+            });
+        }
+    </script>
+}

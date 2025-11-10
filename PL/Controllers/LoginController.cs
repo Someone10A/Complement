@@ -32,6 +32,7 @@ namespace PL.Controllers
             HttpContext.Session.SetString("cv_area", loged.cv_area ?? "");
             HttpContext.Session.SetString("nombre", loged.nombre ?? "");
             HttpContext.Session.SetString("sub_rol", loged.sub_rol ?? "");
+            HttpContext.Session.SetString("pto_alm", loged.pto_alm ?? "");
 
             return RedirectToAction("Index", "Home");
 

@@ -19,6 +19,21 @@ namespace DL
                 return "Dsn=gnx_clon;uid=desa";
             }
         }
+        public static string GetConnectionStringLga(string mode)
+        {
+            if (mode == "PRO")
+            {
+                return "Dsn=lga_prod;uid=lgprod01;";
+            }
+            else
+            {
+                return "Dsn=lga_clon;uid=lgprod01;";
+            }
+        }
 
+        public static string GetConnectionSAT(string mode) 
+        {
+            return Environment.GetEnvironmentVariable("CON_CAT");
+        }
     }
 }

@@ -1,0 +1,150 @@
+﻿@{
+    ViewData["Title"] = "Carta Porte";
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/cartaporte.css" />
+}
+<div class="consulta">
+    <form id="searchForm">
+        <div id="progressBar" class="progress" style="display: none;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 100%"></div>
+        </div>
+        <div class="form-row">
+            <div class="form-field">
+                <label for="searchValue" class="form-label">Folio de conocimiento para embarque WMS</label>
+                <input type="search" id="searchValue" name="searchValue" class="form-control"
+                       placeholder="Ej.: 2724141" maxlength="15" required />
+            </div>
+            <button type="button" class="btn btn-primary button-search" id="btnSearch" aria-label="Buscar" title="Buscar folio">
+                <i class="bi bi-search"></i>
+            </button>
+            <button type="button" class="btn btn-secondary button-search" id="btnAsignar"
+                    aria-label="Asignar" title="Asignar operador y unidad" disabled>
+                <i class="bi bi-arrow-right"></i>
+            </button>
+        </div>
+    </form>
+
+    <form id="detailScnByConoForm">
+        <div class="form-row" id="salesChecksContainer" style="display: none;">
+            <div class="form-field textarea-field">
+                <label for="detailCono" class="form-label">Sales Checks encontrados</label>
+                <textarea id="detailCono" class="form-control" readonly></textarea>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        let salesChecks = [];
+
+        document.getElementById('searchValue').addEventListener('keypress', function(event) {
+            const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
+            if (allowedKeys.includes(event.key)) {
+                return;
+            }
+            if (!/^\d$/.test(event.key)) {
+                event.preventDefault();
+            }
+        });
+
+        document.getElementById('searchValue').addEventListener('paste', function(event) {
+            event.preventDefault();
+            const clipboardData = event.clipboardData?.getData('text') || '';
+            const digitsOnly = clipboardData.replace(/\D/g, '');
+            if (digitsOnly) {
+                const currentValue = this.value || '';
+                const start = this.selectionStart || 0;
+                const end = this.selectionEnd || 0;
+                const newValue = currentValue.substring(0, start) + digitsOnly + currentValue.substring(end);
+                const maxLength = 15;
+                const finalValue = newValue.substring(0, maxLength);
+                this.value = finalValue;
+                setTimeout(() => {
+                    const newCursorPosition = Math.min(start + digitsOnly.length, finalValue.length);
+                    this.setSelectionRange(newCursorPosition, newCursorPosition);
+                }, 0);
+            }
+        });
+
+        document.getElementById('searchValue').addEventListener('input', function() {
+            salesChecks = [];
+            document.getElementById('salesChecksContainer').style.display = 'none';
+            document.getElementById('btnAsignar').disabled = true;
+        });
+
+        document.getElementById('btnSearch').addEventListener('click', onSearch);
+        document.getElementById('searchForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            onSearch();
+        });
+
+        document.getElementById('btnAsignar').addEventListener('click', function() {
+            const searchValue = document.getElementById('searchValue').value;
+            if (salesChecks.length > 0 && searchValue) {
+                window.location.href = '@Url.Action("AsignarUnidad", "CartaPorteLga")?folio=' + encodeURIComponent(searchValue);
+            }
+        });
+
+        function onSearch() {
+            const searchValue = document.getElementById('searchValue').value;
+            if (!searchValue || searchValue.trim() === '') {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Atención',
+                    text: 'Ingresa un folio',
+                    confirmButtonText: 'Aceptar'
+                });
+                return;
+            }
+
+            document.getElementById('progressBar').style.display = 'block';
+            salesChecks = [];
+            document.getElementById('salesChecksContainer').style.display = 'none';
+            document.getElementById('btnAsignar').disabled = true;
+
+            fetch(`/api/precon/${encodeURIComponent(searchValue)}`)
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => Promise.reject(err));
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    salesChecks = data.map(item => item.sales_check);
+                    document.getElementById('progressBar').style.display = 'none';
+
+                    if (salesChecks.length > 0) {
+                        document.getElementById('detailCono').value = salesChecks.join('\n');
+                        document.getElementById('salesChecksContainer').style.display = 'block';
+                        document.getElementById('btnAsignar').disabled = false;
+
+                        const textarea = document.getElementById('detailCono');
+                        const lines = salesChecks.length;
+                        const minHeight = 20;
+                        const lineHeight = 25;
+                        const maxHeight = 1000;
+                        const calculatedHeight = Math.max(minHeight, lines * lineHeight);
+                        textarea.style.height = Math.min(calculatedHeight, maxHeight) + 'px';
+                    }
+                })
+                .catch(error => {
+                    document.getElementById('progressBar').style.display = 'none';
+                    const errorMessage = error?.errors?.message || error?.message || 'Error al buscar folio';
+                    const messageArray = Array.isArray(errorMessage) ? errorMessage : [errorMessage];
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: messageArray.join('\n'),
+                        confirmButtonText: 'Aceptar'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            window.location.href = '@Url.Action("Index", "CartaPorteLga")';
+                        }
+                    });
+                });
+        }
+    </script>
+}

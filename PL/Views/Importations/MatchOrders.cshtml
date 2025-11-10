@@ -1,0 +1,89 @@
+﻿@model ML.Importation.MatchControl
+@{
+    ViewData["Title"] = "Match de ordenes";
+}
+
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">
+        <i class="bi bi-arrow-left-right me-2"></i>Match de órdenes
+    </h2>
+
+    <div class="card shadow-sm mb-4">
+        <div class="card-body">
+            <form asp-action="MatchOrders" method="post">
+                <div class="row g-3">
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Key</label>
+                        <select asp-for="Filtros.Key" name="Key" class="form-select">
+                            <option value="sku">SKU</option>
+                            <option value="cod_interno">Código interno</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Pivote</label>
+                        <select asp-for="Filtros.Pivote" name="Pivote" class="form-select">
+                            <option value="GTM">GTM</option>
+                            <option value="LGA">LGA</option>
+                        </select>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">Folio GTM</label>
+                        <input asp-for="Filtros.FolGtm" name="FolGtm" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">OC Madre</label>
+                        <input asp-for="Filtros.OcMadre" name="OcMadre" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label fw-bold">OC Hija</label>
+                        <input asp-for="Filtros.OcHija" name="OcHija" class="form-control" required />
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-search me-2"></i>Consultar
+                        </button>
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    @if (Model.ListaMaches != null && Model.ListaMaches.Any())
+    {
+        <table class="table table-hover table-bordered align-middle mb-0 text-center">
+            <thead class="table-light">
+                <tr>
+                    <th>SKU</th>
+                    <th>Piezas GTM</th>
+                    <th>Piezas LGA</th>
+                    <th>Diferencia</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in Model.ListaMaches)
+                {
+                    var colorClass = item.Diff == 0 ? "table-success" : "table-danger";
+                    <tr class="@colorClass">
+                        <td>@item.Sku</td>
+                        <td>@item.PiezasGtm</td>
+                        <td>@item.PiezasLGA</td>
+                        <td>@item.Diff</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    }
+    else 
+    {
+        <div class="alert alert-info mt-3 text-center" role="alert">
+            No se encontraron resultados para los filtros ingresados @ViewBag.Errors.
+        </div>
+    }
+</div>

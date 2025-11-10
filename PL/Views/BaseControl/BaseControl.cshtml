@@ -399,7 +399,7 @@
                 const username = dataCredentials.username;
                 const password = dataCredentials.password;
 
-                const responseEndPoint = await fetch("/OracleData/GetEndPointOLPN");
+                const responseEndPoint = await fetch("/OracleData/GetApiKey");
                 const dataEndPoint = await responseEndPoint.json();
 
                 const finalUrl = dataEndPoint.endPoint.replace("ORDER_RELEASE", encodeURIComponent(ord_rel));

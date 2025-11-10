@@ -109,5 +109,40 @@ namespace PL.Controllers
 
             return Json(orders);
         }
+
+        [HttpGet]
+        public ActionResult MatchOrders()
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            var mc = new ML.Importation.MatchControl();
+            return View("MatchOrders", mc);
+        }
+
+        [HttpPost]
+        public ActionResult MatchOrders(ML.Importation.ImportationMatch importationMatch)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            ML.Result resultGetMatchOrders = BL.Importation.ImportationMatch.GetMatchOrders(importationMatch, mode);
+            if (!resultGetMatchOrders.Correct)
+            {
+                ViewBag.Errors = resultGetMatchOrders.Message;
+            }
+            ML.Importation.MatchControl mc = new ML.Importation.MatchControl();
+            mc.Filtros = importationMatch;
+            mc.ListaMaches = (List<ML.Importation.Match>)resultGetMatchOrders.Object;
+
+            //return View("MatchOrders", matchList);
+            return View("MatchOrders",mc);
+        }
     }
 }

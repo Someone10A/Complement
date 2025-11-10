@@ -1,14 +1,12 @@
 ﻿@model IEnumerable<BL.Menu.MenuItem>
 
-<ul class="navbar-nav flex-grow-1">
-    @foreach (var item in Model)
-    {
-        <li class="nav-item me-1">
-            <a class="nav-link text-white fw-medium small hover-nav py-0 px-1"
-               asp-controller="@item.Controller"
-               asp-action="@item.Action">
-                @item.Title
-            </a>
-        </li>
-    }
-</ul>
+@foreach (var item in Model)
+{
+    <li class="nav-item me-1">
+        <a class="nav-link text-white fw-medium small hover-nav py-0 px-2"
+           asp-controller="@item.Controller"
+           asp-action="@item.Action">
+            @item.Title
+        </a>
+    </li>
+}

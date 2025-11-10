@@ -1,0 +1,577 @@
+﻿/* Background color para campos modificables */
+.form-control:not(:disabled) {
+    background-color: #ffffff !important;
+}
+
+/* Background color para campos no modificables */
+.form-control:disabled {
+    background-color: #bdbdbd !important;
+    color: #252525 !important;
+}
+
+/* Color de letra para etiquetas de todos los campos */
+.form-label {
+    color: #522020 !important;
+    font-weight: 500;
+    margin-bottom: 5px;
+}
+
+/* Background color para campo referencias */
+.referencias-background .form-control {
+    background-color: #e4e4e4 !important;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.referencias-background .form-label {
+    position: relative;
+    z-index: 1;
+    margin-bottom: 5px;
+}
+
+.consulta {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.form-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+h1 {
+    text-align: center;
+    color: #333333;
+    font-size: 24px;
+    margin-bottom: 20px;
+}
+
+.form-field {
+    flex: 1;
+    position: relative;
+}
+
+    .form-field .form-control {
+        width: 100%;
+        padding: 12px 16px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: border-color 0.3s ease;
+    }
+
+        .form-field .form-control:focus {
+            outline: none;
+            border-color: #dc3545;
+            box-shadow: 0 0 0 2px rgba(220, 53, 69, 0.25);
+        }
+
+        .form-field .form-control:disabled {
+            cursor: default;
+        }
+
+.btn {
+    align-self: center;
+    margin: 30px 10px 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+    .btn-primary:hover {
+        background-color: #0056b3;
+    }
+
+.btn-clear {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 50%;
+    transition: background-color 0.3s ease;
+}
+
+    .btn-clear:hover {
+        background-color: #f0f0f0;
+    }
+
+.textarea-field textarea {
+    resize: none;
+    overflow: hidden;
+    line-height: 1.4;
+    min-height: 80px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .form-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .btn {
+        width: 100%;
+        margin: 5px 0;
+    }
+}
+/**/
+.flatpickr-day.nextMonthDay:not(.disabled):not(.notAllowed):not([aria-disabled="true"]),
+.flatpickr-day.prevMonthDay:not(.disabled):not(.notAllowed):not([aria-disabled="true"]) {
+    opacity: 1 !important;
+    color: #000 !important;
+}
+
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.disabled,
+.flatpickr-day.notAllowed,
+.flatpickr-day[aria-disabled="true"],
+.flatpickr-day.sunday-disabled,
+.flatpickr-day.flatpickr-disabled.prevMonthDay,
+.flatpickr-day.flatpickr-disabled.nextMonthDay,
+.flatpickr-day[aria-disabled="true"].prevMonthDay,
+.flatpickr-day[aria-disabled="true"].nextMonthDay,
+.flatpickr-day.disabled:hover,
+.flatpickr-day.flatpickr-disabled:hover,
+.flatpickr-day.notAllowed:hover,
+.flatpickr-day[aria-disabled="true"]:hover,
+.flatpickr-day.sunday-disabled:hover,
+.flatpickr-day.disabled:focus,
+.flatpickr-day.flatpickr-disabled:focus,
+.flatpickr-day.notAllowed:focus,
+.flatpickr-day[aria-disabled="true"]:focus,
+.flatpickr-day.sunday-disabled:focus {
+    opacity: 0.5 !important;
+    color: #6c757d !important;
+    background: transparent !important;
+    border-color: transparent !important;
+    cursor: default !important;
+}
+
+.flatpickr-day.sunday-disabled {
+    pointer-events: none !important;
+}
+
+/* Estilos específicos para los formularios de datos */
+.client-form,
+.address-form,
+.additional-form,
+.details-form {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    border: none;
+}
+
+    .client-form .form-label,
+    .address-form .form-label,
+    .additional-form .form-label,
+    .details-form .form-label {
+        font-weight: 600;
+        color: #495057;
+    }
+
+/* Estilo para el campo de búsqueda principal */
+#formScn {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+    #formScn .form-field {
+        position: relative;
+    }
+
+    #formScn .form-control {
+        padding-right: 40px; /* Espacio para el botón de limpiar */
+    }
+
+/* Estilo para el área de resultados */
+#resultado {
+    margin-top: 20px;
+}
+
+/* Animaciones suaves */
+.form-field {
+    transition: all 0.3s ease;
+}
+
+.btn {
+    transition: all 0.3s ease;
+}
+
+/* Estilos para mejorar la legibilidad */
+.form-control[readonly] {
+    background-color: #f8f9fa;
+    border-color: #dee2e6;
+}
+
+/* Estilo para el textarea de detalles */
+.details-form textarea {
+    min-height: 20px;
+    font-family: inherit;
+    font-size: 14px;
+    line-height: 1.4;
+    background-color: #bdbdbd !important;
+    color: #252525 !important;
+    resize: none;
+    overflow: hidden;
+}
+
+/* Estilo para el botón de guardar */
+.button-save {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 200px;
+    justify-content: center;
+    margin: 0;
+}
+
+    .button-save:hover:not(:disabled) {
+        background-color: #c82333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    }
+
+    .button-save:active:not(:disabled) {
+        transform: translateY(0);
+    }
+
+    .button-save:disabled {
+        background-color: #6c757d !important;
+        color: #ffffff !important;
+        opacity: 1 !important;
+        cursor: not-allowed !important;
+        pointer-events: none !important;
+    }
+
+/* Estilo para selects */
+select.form-control {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    padding-right: 40px;
+    transition: all 0.2s ease-in-out;
+}
+
+    select.form-control:hover {
+        background-color: #f8f9fa;
+        border-color: #6c757d;
+    }
+
+    select.form-control:focus {
+        background-color: #f8f9fa;
+        border-color: #6c757d;
+        box-shadow: 0 0 0 2px rgba(108, 117, 125, 0.25);
+    }
+
+    /* Estilos para el menú desplegable */
+    select.form-control option {
+        background-color: #f8f9fa !important;
+        color: #333 !important;
+        padding: 8px 12px;
+    }
+
+        select.form-control option:checked {
+            background-color: #e9ecef !important;
+            color: #000 !important;
+            font-weight: 500;
+        }
+
+        select.form-control option:hover {
+            background-color: #dee2e6 !important;
+            color: #000 !important;
+        }
+
+        select.form-control option:focus {
+            background-color: #dee2e6 !important;
+            color: #000 !important;
+        }
+
+/* Estilo para campos editables */
+.form-control:not(:disabled):not([readonly]) {
+    background-color: #ffffff;
+    border: 2px solid #e9ecef;
+    transition: border-color 0.3s ease;
+}
+
+    .form-control:not(:disabled):not([readonly]):focus {
+        border-color: #dc3545;
+        box-shadow: 0 0 0 0.2rem rgba(220, 53, 69, 0.25);
+    }
+
+/* Estilo para el campo de búsqueda sin borde */
+.search-input {
+    border: none !important;
+    border-bottom: 1px solid #e9ecef !important;
+    border-radius: 0 !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    padding: 8px 0 !important;
+    font-size: 16px !important;
+}
+
+    .search-input:focus {
+        border-bottom-color: #dc3545 !important;
+        box-shadow: none !important;
+        outline: none !important;
+        border-bottom-width: 2px !important;
+    }
+
+    .search-input:hover {
+        border-bottom-color: #dc3545 !important;
+    }
+
+/* Estilo para el botón de búsqueda solo con ícono */
+.search-button {
+    width: 40px !important;
+    height: 40px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    border-radius: 50% !important;
+    margin-left: 10px !important;
+}
+
+    .search-button i {
+        font-size: 18px;
+    }
+
+/* Estilo para el campo con icono de calendario */
+.input-with-icon {
+    position: relative;
+}
+
+    .input-with-icon input {
+        padding-right: 40px;
+    }
+
+    .input-with-icon i {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        pointer-events: none;
+        color: #6c757d;
+        font-size: 18px;
+    }
+
+    .input-with-icon input:focus + i {
+        color: #dc3545;
+    }
+
+#calendar-icon {
+    pointer-events: auto !important;
+    cursor: pointer;
+}
+
+/* Estilo para el cuadro flotante de respuesta */
+.response-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+}
+
+.response-container {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+.response-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid #dc3545;
+}
+
+    .response-header h3 {
+        margin: 0;
+        color: #dc3545;
+    }
+
+.response-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+    .response-close:hover {
+        background: #f0f0f0;
+        color: #dc3545;
+    }
+
+.response-content {
+    white-space: pre-wrap;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: #333;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Estilos para los slide buttons (toggle switches) */
+.button-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 30px;
+    margin-top: 20px;
+}
+
+.slide-buttons-container {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.switch-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #495057;
+}
+
+.switch-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.switch-slider {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+    background-color: #ccc;
+    border-radius: 34px;
+    transition: background-color 0.3s ease;
+}
+
+    .switch-slider:before {
+        content: "";
+        position: absolute;
+        height: 20px;
+        width: 20px;
+        left: 3px;
+        bottom: 3px;
+        background-color: white;
+        border-radius: 50%;
+        transition: transform 0.3s ease;
+    }
+
+.switch-input:checked + .switch-slider {
+    background-color: #dc3545;
+}
+
+    .switch-input:checked + .switch-slider:before {
+        transform: translateX(24px);
+    }
+
+    .switch-input:checked + .switch-slider + .switch-text {
+        color: #dc3545;
+        font-weight: 600;
+    }
+
+.switch-text {
+    user-select: none;
+    transition: color 0.3s ease, font-weight 0.3s ease;
+}
+
+/* Responsive styles for slide buttons */
+@media (max-width: 768px) {
+    .button-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    .slide-buttons-container {
+        flex-direction: column;
+        gap: 15px;
+        width: 100%;
+    }
+
+    .switch-label {
+        width: 100%;
+        justify-content: space-between;
+    }
+}

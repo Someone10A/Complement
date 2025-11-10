@@ -1,0 +1,234 @@
+﻿/* Background color para campos modificables */
+.form-control:not(:disabled) {
+    background-color: #ffffff !important;
+}
+
+/* Background color para campos no modificables */
+.form-control:disabled {
+    background-color: #bdbdbd !important;
+    color: #252525 !important;
+}
+
+/* Color de letra para etiquetas */
+.form-label {
+    color: #522020 !important;
+}
+
+.consulta, .asignar {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+}
+
+.asignar {
+    height: 500px;
+}
+
+.form-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.form-field {
+    flex: 1;
+}
+
+.button-search, .button-asign {
+    align-self: center;
+    margin: 10px 10px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.app-header {
+    background-color: #E4002B;
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    color: white;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.centered-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.header-title {
+    flex: 1;
+}
+
+    .header-title h1 {
+        margin: 0;
+        font-size: 21px;
+        color: white;
+        justify-content: center;
+        display: flex;
+        align-items: center;
+    }
+
+.logout-button-container {
+    margin-left: auto;
+    justify-content: space-between;
+}
+
+.logo-container {
+    margin-right: 20px;
+}
+
+.logo {
+    height: 40px;
+    width: auto;
+}
+
+.textarea-field textarea {
+    resize: none;
+    overflow: hidden;
+    line-height: 1.4;
+    min-height: 20px;
+}
+
+.selection-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 10px;
+}
+
+.label-with-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.selection-label {
+    color: #522020;
+    font-size: 12px;
+    font-weight: 400;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.search-input {
+    flex: 1;
+    padding: 6px 10px;
+    border: 2px solid #e4e4e4;
+    border-radius: 4px;
+    font-size: 12px;
+    background-color: #e4e4e4;
+    transition: border-color 0.2s ease;
+}
+
+    .search-input:focus {
+        outline: none;
+        border-color: #f32121;
+        box-shadow: 0 0 0 2px #efb0b0;
+    }
+
+    .search-input::placeholder {
+        color: #999;
+        font-style: italic;
+    }
+
+.operadores-list, .unidades-list {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 8px;
+    background-color: #f9f9f9;
+    overflow-y: auto;
+    max-height: 350px;
+    min-height: 10px;
+}
+
+.operador-item, .unidad-item {
+    padding: 10px 12px;
+    margin: 3px 0;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background-color: #ffffff;
+    border: 2px solid #e0e0e0;
+    font-size: 14px;
+    font-weight: 500;
+    color: #333;
+}
+
+    .operador-item:hover, .unidad-item:hover {
+        background-color: #bdbdbd;
+        border-color: #bdbdbd;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px #bdbdbd;
+        color: #333;
+    }
+
+    .operador-item.selected, .unidad-item.selected {
+        background-color: #da1414;
+        color: white;
+        border-color: #da1414;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgb(224, 66, 22);
+    }
+
+        .operador-item.selected:hover, .unidad-item.selected:hover {
+            background-color: rgb(255, 0, 0);
+            transform: translateY(-1px);
+        }
+
+.scrollable-content {
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Estilos para la barra de progreso */
+.progress {
+    height: 25px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    position: absolute;
+    top: -15px;
+    left: 20px;
+    right: 20px;
+    z-index: 1000;
+    margin-bottom: 0;
+}
+
+.progress-bar {
+    height: 100%;
+    background-color: #007bff;
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+    transition: width 0.6s ease;
+}
+
+.progress-bar-striped {
+    background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.15) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.15) 50%, rgba(255, 255, 255, 0.15) 75%, transparent 75%, transparent);
+    background-size: 1rem 1rem;
+}
+
+.progress-bar-animated {
+    animation: progress-bar-stripes 1s linear infinite;
+}
+
+@keyframes progress-bar-stripes {
+    0% {
+        background-position: 1rem 0;
+    }
+
+    100% {
+        background-position: 0 0;
+    }
+}

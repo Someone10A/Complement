@@ -30,5 +30,14 @@ namespace PL.Controllers
         }
 
 
+        [HttpGet]
+        public IActionResult GetApiKey()
+        {
+            var apiKey = _config["GoogleData:ApiKey"];
+
+            return Json(new { apiKey });
+        }
+
+
     }
 }

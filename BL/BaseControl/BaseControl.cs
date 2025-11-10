@@ -1,4 +1,5 @@
-﻿using ML;
+﻿using DocumentFormat.OpenXml.EMMA;
+using ML;
 using ML.BaseControl;
 using System;
 using System.Collections.Generic;
@@ -191,6 +192,7 @@ namespace BL.BaseControl
 	                                    WHEN B.estado = 'I' THEN B.estado||C.estado||'-Impreso'
 	                                    WHEN B.estado = 'X' THEN B.estado||C.estado||'-Cancelado'
 	                                    WHEN B.estado = 'E' THEN B.estado||C.estado||'-Entregado'
+	                                    WHEN B.estado = 'D' THEN B.estado||C.estado||'-Devuelto'
 	                                    WHEN B.estado = 'G' THEN B.estado||C.estado||'-Generado'
 	                                    ELSE B.estado||C.estado||'-Estado desconocido'
                                     END AS estatus_gnx,
@@ -259,7 +261,7 @@ namespace BL.BaseControl
             }
             return result;
         }
-        public static ML.Result GetOrdersPerData(ML.BaseControl.QueryInfo queryInfo, string mode)
+        public static ML.Result GetOrdersPerData(ML.BaseControl.QueryInfo queryInfo, string mode)   
         {
             ML.Result result = new ML.Result();
             try
@@ -267,6 +269,13 @@ namespace BL.BaseControl
                 using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {
                     connection.Open();
+
+                    string[] values = queryInfo.data_info
+                            .Split(',', StringSplitOptions.RemoveEmptyEntries)
+                            .Select(v => $"'{v.Trim()}'")
+                            .ToArray();
+
+                    string inClause = string.Join(",", values);
 
                     string query = $@"SELECT
 	                                    TRIM(A.car_sal) AS car_sal,
@@ -286,6 +295,7 @@ namespace BL.BaseControl
 	                                    WHEN B.estado = 'I' THEN B.estado||C.estado||'-Impreso'
 	                                    WHEN B.estado = 'X' THEN B.estado||C.estado||'-Cancelado'
 	                                    WHEN B.estado = 'E' THEN B.estado||C.estado||'-Entregado'
+	                                    WHEN B.estado = 'D' THEN B.estado||C.estado||'-Devolucion'
 	                                    WHEN B.estado = 'G' THEN B.estado||C.estado||'-Generado'
 	                                    ELSE B.estado||C.estado||'-Estado desconocido'
                                     END AS estatus_gnx,
@@ -311,8 +321,8 @@ namespace BL.BaseControl
                                     LEFT JOIN ora_motivos_rt E ON E.cod_mot = D.cod_mot
                                     INNER JOIN clientes F ON F.cod_emp = B.cod_emp AND F.cod_cli = B.cod_cli
                                     WHERE A.pto_alm = {queryInfo.pto_alm}
-                                    AND A.{queryInfo.data_type} = '{queryInfo.data_info}'
-                                    ORDER BY A.estatus ASC";
+                                    AND A.{queryInfo.data_type} IN ({inClause})
+                                    ORDER BY A.estatus ASC, A.car_sal, A.num_scn";
 
                     List<ML.BaseControl.Order> orderList = new List<ML.BaseControl.Order>();
 
@@ -622,7 +632,6 @@ namespace BL.BaseControl
             }
             return result;
         }
-
 
         public static async Task<ML.Result> MultiConfirmationsOk(string user, string shipment, string cod_pto, string mode)
         {

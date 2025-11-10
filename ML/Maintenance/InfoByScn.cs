@@ -31,6 +31,7 @@ namespace ML.Maintenance
         public string? NumExt { get; set; }
         public string? Calle { get; set; }
         public string? Colonia { get; set; }
+        public string? ColoniaOriginal { get; set; }
         public string? Municipio { get; set; }
         public string? Estado { get; set; }
         public string? CodPos { get; set; }
@@ -44,10 +45,14 @@ namespace ML.Maintenance
         public string IsRdd { get; set; }
         public string IsRddSend { get; set; }
         public string? NumRdd { get; set; }
-        public string IsConfirmed { get; set; }
+        public bool IsConfirmed { get; set; }
+        public string UltConfirm { get; set; }
         public string InPlan { get; set; }
         public string InRoute { get; set; }
 
+        public bool IsCrb { get; set; }
+        public bool IsPosfec { get; set; }
         public List<ML.Maintenance.Detail> Details { get; set; }
+        public ML.Maintenance.ApiRequestWMS ApiRequestWMS { get; set; }
     }
 }

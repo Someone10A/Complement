@@ -14,5 +14,6 @@ namespace ML.Login
         public string? cv_area { get; set; }
         public string? sub_rol { get; set; }
         public string? usu_pass { get; set; }
+        public string? pto_alm { get; set; }
     }
 }

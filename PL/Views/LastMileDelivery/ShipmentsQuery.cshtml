@@ -50,7 +50,7 @@
     @if (Model != null && Model.Any())
     {
         <div class="table-responsive shadow-sm rounded-3">
-            <table class="table table-bordered table-striped align-middle mb-0">
+            <table class="table table-hover table-bordered table-striped align-middle mb-0">
                 <thead class="table-dark">
                     <tr>
                         <th>SCN</th>
@@ -90,12 +90,11 @@
 
 @section Scripts {
     <script>
-                function formatearFecha(fechaStr) {
+        function formatearFecha(fechaStr) {
             if (!fechaStr) return "";
             const [anio, mes, dia] = fechaStr.split("-");
             return `${dia}${mes}${anio}`;
         }
-
 
         function prepararFecha() {
             const fecPri = document.getElementById("fecPriInput").value;
@@ -134,5 +133,6 @@
                 input.max = maxDate;
             });
         });
+
     </script>
 }

@@ -1,4 +1,4 @@
-﻿using System;
+﻿    using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,7 +12,10 @@ namespace BL.Menu
         {
             var menu = new List<MenuItem>();
 
-            menu.Add(new MenuItem("Home", "Home", "Index", "bi-house"));
+            if (usu_id != null)
+            {
+                menu.Add(new MenuItem("Home", "Home", "Index", "bi-house"));
+            }
 
             if (sub_rol == "SIS")
             {
@@ -23,12 +26,14 @@ namespace BL.Menu
             if (cv_area == "CIC" && sub_rol == "CIC")
             {
                 menu.Add(new MenuItem("Ordenes", "Importations", "GetOrders", "bi-receipt"));
-                menu.Add(new MenuItem("Consulta Hija", "Importations", "GetRelation", "bi-search"));
+                menu.Add(new MenuItem("Consulta Hija", "Importations", "GetRelation", "bi-search bi-receipt"));
+                menu.Add(new MenuItem("MatchGTM-LGA", "Importations", "MatchOrders", "bi-arrow-left-right"));
             }
 
             if (cv_area == "CON" || cv_area == "GGB"|| sub_rol == "CIN")
             {
-                menu.Add(new MenuItem("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck"));
+                menu.Add(new MenuItem("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck bi-truck"));
+                menu.Add(new MenuItem("Regresos", "TrackingManager", "ReturnedOrders", "bi-box-seam bi-arrow-return-left"));
                 menu.Add(new MenuItem("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"));
                 menu.Add(new MenuItem("MatcxDia", "LastMileDelivery", "GetShipmentsByDay", "bi-calendar3-event"));
                 menu.Add(new MenuItem("MatchxRango", "LastMileDelivery", "GetShipmentsByQuery", "bi-calendar2-week"));
@@ -53,15 +58,19 @@ namespace BL.Menu
             {
                 //new("Privacy", "Home", "Privacy", "bi-shield-lock"),
                 new("Ordenes", "Importations", "GetOrders", "bi-receipt"),
-                new("Consulta Hija", "Importations", "GetRelation", "bi-search"),
-                new("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck"),
+                new("Consulta Hija", "Importations", "GetRelation", "bi-search bi-receipt"),
+                new("MatchGTM-LGA", "Importations", "MatchOrders", "bi-arrow-left-right"),
+                new("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck bi-truck"),
                 new("Regresos", "TrackingManager", "ReturnedOrders", "bi-box-seam bi-arrow-return-left"),
                 new("MatcxDia", "LastMileDelivery", "GetShipmentsByDay", "bi-calendar3-event"),
                 new("MatchxRango", "LastMileDelivery", "GetShipmentsByQuery", "bi-calendar2-week"),
                 new("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"),
                 new("BaseControl", "BaseControl", "BaseControl", "bi-clipboard-check"),
                 new("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"),
-                new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt")
+                new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt"),
+                new("Pendientes Confirmacion", "Maintenance", "GetToConfirm", "bi-calendar-check"),
+                new("Carta Porte", "CartaPorte", "Index", "bi-file-earmark-text bi-truck"),
+                new("Ordenes Listas", "DeliveryPlanner", "GetReadyOrdersPerDate", "bi-file-earmark-check bi-send")
 
             };
         }

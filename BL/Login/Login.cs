@@ -89,7 +89,7 @@ namespace BL.Login
             ML.Result result = new ML.Result();
             try
             {
-                string query = $@"SELECT TRIM(B.usu_pass), TRIM(B.cv_area), TRIM(B.usu_nombre), A.sub_rol
+                string query = $@"SELECT TRIM(B.usu_pass), TRIM(B.cv_area), TRIM(B.usu_nombre), A.sub_rol, B.cv_almacen
                                 FROM ora_lga_usu A, dblga@lga_prod:lgausuario B
                                 WHERE A.usu_id = ?
                                 AND B.usu_id = A.usu_id";
@@ -116,6 +116,7 @@ namespace BL.Login
                                     logged.usu_nombre  = reader.GetString(2);
                                     logged.sub_rol = reader.GetString(3);
                                     logged.nombre = logged.usu_nombre.Split(' ')[0];
+                                    logged.pto_alm = reader.GetString(4);
 
                                     result.Correct = true;
                                     result.Object = logged;

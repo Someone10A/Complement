@@ -36,3 +36,22 @@ body {
     .nav-link.active {
         color: #ffc107 !important;
     }
+
+.menu-scroll {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none; 
+}
+
+    .menu-scroll::-webkit-scrollbar {
+        display: none; 
+    }
+
+.scroll-btn {
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    z-index: 10;
+}

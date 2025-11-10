@@ -1,161 +1,1121 @@
 ﻿@model ML.Maintenance.InfoByScn
-
+@using Newtonsoft.Json
+@using ML.Maintenance
 @{
-    ViewData["Title"] = "Consulta de SCN";
+    ViewData["Title"] = "Mantenimiento";
 }
 
 <div class="container-fluid mt-1 px-2">
-    <h2 class="mb-4 text-primary fw-bold">Consulta de Información por SCN</h2>
+    <h2 class="mb-4 text-primary fw-bold ">Mantenimiento</h2>
 
-    <form asp-action="GetScnInfo" asp-controller="Maintenance" method="post" id="formScn" class="shadow-sm p-3 rounded-3 bg-white">
-        <div class="row g-3 align-items-end">
-            <div class="col-md-4">
-                <label for="numScn" class="form-label fw-semibold">Número SCN</label>
-                <input type="text" id="numScn" name="numScn" class="form-control" placeholder="Digita SCN" required />
-            </div>
-
-            <div class="col-md-2">
-                <button type="submit" class="btn btn-primary w-100">
-                    <i class="bi bi-search"></i> Consultar
-                </button>
+    <div class="row mb-3">
+        <div class="col-12">
+            <div class="d-flex gap-2">
+                <div class="flex-grow-1">
+                    <label for="numScnSearch" class="form-label">Sales Check</label>
+                    <div class="input-group">
+                        <input id="numScnSearch" class="form-control" value="@Model.NumScn" />
+                        <button id="btnSearchScn" class="btn btn-primary" type="button" title="Buscar">
+                            <i class="bi bi-search"></i> Buscar
+                        </button>
+                    </div>
+                    <small id="numScnHelp" class="small-muted">Introduce el Sales Check y presiona Buscar.</small>
+                </div>
             </div>
         </div>
-    </form>
-    @*
-        --Los estados siguientes no se puede dar mantenimiento
-            "X" Cancelado
-            "C" PreCancelado
-            "E" Entregado
-            "D" Devuelto
-            "G" Generado
-        --En teoria solo serian estados 
-            "I" o "P"
-        --E mantenimiento solo puede posfechar
-            "DISPONIBLE" 
-            y tal vez en "ENVIADO" y 
-            "EN PROCESO DE ENVIO"
-        --Mostrar OrdRel como apartado "orden WMS""
-        --Mostrar fecha correcta
-        --No enviar datos 
-            vacios referencias, observaciones u 
-            numeros internos u externos al menos 
-            poner una x o un 0
-        --Panel Volado y MasGen solo aceptar N o S
-        --Si InPlan es distinto de NO poner que 
-            ya esta planeandose e impedir o al 
-            usuario modificar fecha, si acaso solo
-            dirección, pero no es recomendado
-        --Si InRoute(salio del almacen) es distinto de NO poner que 
-            ya esta en ruta e impedir o al 
-            usuario modificar trae el dato de la carga
-            de salida cuando esta en ruta 
-    *@
-    <div id="resultado" class="mt-4">
-        @if (Model != null && Model.NumScn != null)
-        {
-            <div class="card shadow-sm rounded-3">
-                <div class="card-body">
-                    <h5 class="fw-bold text-secondary mb-3">Datos Generales</h5>
-                    <div class="row">
-                        <div class="col-md-4"><strong>SCN:</strong> @Model.NumScn</div>
-                        <div class="col-md-4"><strong>Cliente:</strong> @(Model.NomCli ?? "-") @(Model.Ape1Cli ?? "") @(Model.Ape2Cli ?? "")</div>
-                        <div class="col-md-4"><strong>Orden Relacionada:</strong> @(Model.OrdRel ?? "-")</div>
-                    </div>
+    </div>
 
-                    <div class="row mt-2">
-                        <div class="col-md-4"><strong>Dirección:</strong> @(Model.Calle ?? "-") #@(Model.NumExt ?? "-")</div>
-                        <div class="col-md-4"><strong>Colonia:</strong> @(Model.Colonia ?? "-")</div>
-                        <div class="col-md-4"><strong>Municipio:</strong> @(Model.Municipio ?? "-"), @(Model.Estado ?? "-")</div>
-                    </div>
+    <form id="maintenanceForm" method="post" class="row g-3">
+        <!-- Hidden fields (no se ven, pero se envían) -->
+        @Html.HiddenFor(m => m.NumScn)
+        @Html.HiddenFor(m => m.PtoAlm)
+        @Html.HiddenFor(m => m.CodPto)
+        @Html.HiddenFor(m => m.NumEdc)
+        @Html.HiddenFor(m => m.CodCli)
+        @Html.HiddenFor(m => m.CodDir)
+        @Html.HiddenFor(m => m.IsRdd)
+        @Html.HiddenFor(m => m.NumRdd)
+        @Html.HiddenFor(m => m.FecEnt) 
+        @Html.HiddenFor(m => m.IsPosfec)  
+        @Html.HiddenFor(m => m.IsCrb)
+        @Html.HiddenFor(m => m.IsConfirmed)
+        @* Panel/Volado/MasGen se envían como 'S' o 'N' *@
+        <input type="hidden" id="hPanel" name="Panel" value="@Model.Panel" />
+        <input type="hidden" id="hVolado" name="Volado" value="@Model.Volado" />
+        <input type="hidden" id="hMasGen" name="MasGen" value="@Model.MasGen" />
 
-                    <div class="row mt-2">
-                        <div class="col-md-4"><strong>Código Postal:</strong> @(Model.CodPos ?? "-")</div>
-                        <div class="col-md-4"><strong>Teléfonos:</strong> @(Model.TelCli ?? "-"), @(Model.TelCli1 ?? "-"), @(Model.TelCli2 ?? "-")</div>
-                        <div class="col-md-4"><strong>Estado 1:</strong> @(Model.Estado1 ?? "-")</div>
-                    </div>
+        <div class="col-12">
+            <div class="row g-3 section-card">
+                <!-- Sección Cliente / Nombre -->
 
-                    <div class="row mt-2">
-                        <div class="col-md-4"><strong>Panel:</strong> @(Model.Panel ?? "-")</div>
-                        <div class="col-md-4"><strong>Volado:</strong> @(Model.Volado ?? "-")</div>
-                        <div class="col-md-4"><strong>MasGen:</strong> @(Model.MasGen ?? "-")</div>
+                <div class="col-md-3">
+                    <label class="form-label">NomCli</label>
+                    <input class="form-control readonly-field" id="NomCli" name="NomCli" value="@Model.NomCli" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ape1Cli</label>
+                    <input class="form-control readonly-field" id="Ape1Cli" name="Ape1Cli" value="@Model.Ape1Cli" readonly />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Ape2Cli</label>
+                    <input class="form-control readonly-field" id="Ape2Cli" name="Ape2Cli" value="@Model.Ape2Cli" readonly />
+                </div>
+                <!-- Estado GNX mapping y restricción para guardar -->
+                <div class="col-md-3">
+                    <div id="StatusInfo" class="section-card">  
+                        <div id="GnxData"></div>
+                        <div id="WmsData"></div>
+                        <div id="ConfirmationData"></div>
+                        <div id="RouteData"></div>
+                        <div id="PlanData"></div>
+                        
                     </div>
+                </div>
 
-                    <div class="row mt-2">
-                        <div class="col-md-6"><strong>Observaciones:</strong> @(Model.Observaciones ?? "-")</div>
-                        <div class="col-md-6"><strong>Referencias:</strong> @(Model.Referencias ?? "-")</div>
-                    </div>
+                <!-- Telefonos -->
+                <div class="col-md-6">
+                    <label class="form-label">TelCli</label>
+                    <input class="form-control" id="TelCli" name="TelCli" value="@Model.TelCli" readonly />
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">TelCli1</label>
+                    <input class="form-control" id="TelCli1" name="TelCli1" value="@Model.TelCli1" readonly />
+                </div>
 
+                <!--Estado de orden en legado y wms-->
+                <div class="col-md-6">
+                    <label class="form-label">Estatus de genesix</label>
+                    @{
+                        string estatusGnx = Model.Estado1 switch
+                        {
+                            "P" => "Retenido-Transito",
+                            "T" => "Transito",
+                            "I" => "Impreso",
+                            "X" => "Cancelado",
+                            "E" => "Entregado",
+                            "D" => "Devolucion",
+                            "G" => "Generado",
+                            null => "-",
+                            _ => "Estado desconocido" 
+                        };
+                    }
+                    <input class="form-control readonly-field" id="EstadoCombined" name="EstadoCombined" readonly value="@($"{Model.Estado1}-{Model.Estado2} - {estatusGnx}")" />
+                    <small class="small-muted">Estatus de genesix</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Orden WMS</label>
+                    <input class="form-control readonly-field" id="OrdRel" name="OrdRel" readonly value="@Model.OrdRel" />
+                    <small class="small-muted">
+                        <div id="wmsSection">
+                            @if (Model.ApiRequestWMS != null && Model.ApiRequestWMS.Successes)
+                            {
+                                <div><strong>Estatus WMS:</strong> @Model.ApiRequestWMS.DescEstatus</div>
+                                <div><strong>EnvioBloqueado:</strong> @(Model.ApiRequestWMS.EnvioBloqueado ? "Sí" : "No")</div>
+                            }
+                            else
+                            {
+                                <div class="text-muted">No existe orden en WMS. Se puede intentar crear.</div>
+                            }
+                        </div>
+                    </small>
+                </div>
+
+                <!-- Fecha con calendario -->
+                <div class="col-md-6">
+                    <label for="fechaElegida" class="form-label">Fecha</label>
+                    <input id="fechaElegida" name="fechaElegida" type="date" class="form-control" />
+                    <small class="small-muted">Fecha de entrega.</small>
+                </div>
+                <div>
+                    <input type="hidden" id="FecEntOriginal" name="FecEntOriginal" />
+                </div>
+            </div>
+        </div>
+
+        <!-- Dirección / dinámica CodPos -> Estado/Municipio/Colonias -->
+        <div class="col-12">
+            <div class="row g-3 section-card mt-3">
+                <div class="col-md-3">
+                    <label class="form-label">Codigo Postal <span class="required-star">*</span></label>
+                    <input id="CodPos" name="CodPos" class="form-control" value="@Model.CodPos" />
+                    @* <small class="small-muted">Al cambiar, se solicitarán colonias.</small> *@
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Estado</label>
+                    <input id="Estado" name="Estado" class="form-control" readonly value="@Model.Estado" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Municipio</label>
+                    <input id="Municipio" name="Municipio" class="form-control" readonly value="@Model.Municipio" />
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">Colonia <span class="required-star">*</span></label>
+                    <select id="ColoniaDropdown" name="Colonia" class="form-select" required>
+                        <option value="">-- Selecciona --</option>
+                        @* Opciones se llenan con JS *@
+                    </select>
+                    <div id="OriginalColonia" name="OriginalColonia" class="original-colonia">Original: @Model.ColoniaOriginal</div>
+                </div>
+
+                <div class="col-md-4">
+                    <label class="form-label">Calle</label>
+                    <input id="Calle" name="Calle" class="form-control" value="@Model.Calle" />
+                    <small class="small-muted">Calle de la direccion.</small>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Numero Exterior <span class="required-star">*</span></label>
+                    <input id="NumExt" name="NumExt" class="form-control" value="@Model.NumExt" required />
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Numero Interior</label>
+                    <input id="NumInt" name="NumInt" class="form-control" value="@Model.NumInt" />
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Referencias</label>
+                    <input id="Referencias" name="Referencias" class="form-control" value="@Model.Referencias" />
+                </div>
+                <div class="col-md-12">
+                    <label class="form-label">Observaciones</label>
+                    <textarea id="Observaciones" name="Observaciones" class="form-control">@Model.Observaciones</textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel / Volado / MasGen toggles (S / N) -->
+        <div class="col-12 mt-3">
+            <div class="custom-switch slide-buttons-container">
+
+                <label class="switch-label">
+                    <input type="checkbox"
+                           id="switchPanel"
+                           class="switch-input toggle-sn"
+                           @(Model.Panel == "S" ? "checked" : "") />
+                    <span class="switch-slider"></span>
+                    <span class="switch-text">Panel</span>
+                </label>
+
+                <label class="switch-label">
+                    <input type="checkbox"
+                           id="switchVolado"
+                           class="switch-input toggle-sn"
+                           @(Model.Volado == "S" ? "checked" : "") />
+                    <span class="switch-slider"></span>
+                    <span class="switch-text">Volado</span>
+                </label>
+
+                <label class="switch-label">
+                    <input type="checkbox"
+                           id="switchMasGen"
+                           class="switch-input toggle-sn"
+                           @(Model.MasGen == "S" ? "checked" : "") />
+                    <span class="switch-slider"></span>
+                    <span class="switch-text">MasGen</span>
+                </label>
+
+            </div>
+
+        </div>
+
+        <!-- Lat/Long -->
+        <div class="col-12 mt-3">
+            <div class="row section-card g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Longitud <span class="required-star">*</span></label>
+                    <input id="Longitud" name="Longitud" class="form-control" value="@Model.Longitud" required />
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Latitud <span class="required-star">*</span></label>
+                    <input id="Latitud" name="Latitud" class="form-control" value="@Model.Latitud" required />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button id="btnRecalcular" type="button" class="btn btn-outline-secondary w-100">Recalcular</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RDD -->
+        <div class="col-12 mt-3">
+            <div id="rddSection" class="section-card" style="display: @(Model.IsRdd == "SI" ? "block" : "none")">
+                <div><strong>RDD:</strong> Sí</div>
+                <div><strong>NumRdd:</strong> @Model.NumRdd</div>
+            </div>
+        </div>
+
+        <div class="col-12 mt-3">
+            <div class="section-card">
+                <h6>Detalles</h6>
+                <div id="detailsContainer">
                     @if (Model.Details != null && Model.Details.Any())
                     {
-                        <hr />
-                        <h6 class="fw-bold text-secondary mb-2">Detalles</h6>
-                        <div class="table-responsive">
-                            <table class="table table-sm table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th>SKU</th>
-                                        <th>Piezas</th>
-                                        <th>Descripción</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var d in Model.Details)
-                                    {
-                                        <tr>
-                                            <td>@d.Sku</td>
-                                            <td>@d.Piezas</td>
-                                            <td>@d.Descripcion</td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
+                        <div class="details-form">
+                            <div class="form-row">
+                                <div class="form-field textarea-field">
+                                    <label class="form-label">Detalle de compra</label>
+                                    <textarea class="form-control" readonly disabled>
+                                        @{
+                                            var detailsText = "";
+                                            if (Model.Details != null && Model.Details.Any())
+                                            {
+                                                detailsText = string.Join("\n", Model.Details.Select(d => $"{d.Sku} - {d.Descripcion} (Piezas: {d.Piezas})"));
+                                            }
+                                        }
+                                        @detailsText</textarea>
+                                </div>
+                            </div>
                         </div>
+                    }
+                    else
+                    {
+                        <div class="text-muted">No hay detalles.</div>
                     }
                 </div>
             </div>
-        }
-    </div>
+        </div>
+
+        <!-- CRB / Confirmar toggles -->
+        <div class="col-12 mt-3">
+            <div class="section-card">
+                <div class="custom-switch d-flex align-items-center justify-content-between flex-wrap gap-4">
+
+                    <!-- Grupo de toggles -->
+                    <div class="d-flex align-items-center gap-4 flex-wrap">
+                        <label class="switch-label">
+                            <input type="checkbox"
+                                   id="switchIsCrb"
+                                   class="switch-input"
+                                   @(Model.IsCrb ? "checked" : "") />
+                            <span class="switch-slider"></span>
+                            <span class="switch-text">IsCRB</span>
+                        </label>
+
+                        <label class="switch-label">
+                            <input type="checkbox"
+                                   id="switchIsConfirmed"
+                                   class="switch-input"
+                                   @(Model.IsConfirmed ? "checked" : "") />
+                            <span class="switch-slider"></span>
+                            <span class="switch-text">Confirmar</span>
+                        </label>
+                    </div>
+
+                    <!-- Botón Guardar -->
+                    <button id="btnGuardar" type="submit" class="button-save" disabled>
+                        <i class="bi bi-save"></i> Guardar
+                    </button>
+
+                </div>
+            </div>
+        </div>
+
+    </form>
 </div>
+
+@section Styles {
+    <style>
+        .small-muted {
+            font-size: .85rem;
+            color: #6c757d;
+        }
+
+        .input-readonly {
+            background-color: #f8f9fa;
+        }
+
+        .original-colonia {
+            font-size: .9rem;
+            margin-top: .25rem;
+            color: #495057;
+        }
+
+        .disabled-label {
+            color: #6c757d;
+        }
+
+        .section-card {
+            border-radius: 8px;
+            box-shadow: 0 1px 6px rgba(0,0,0,.05);
+            padding: 1rem;
+            background: #fff;
+        }
+
+        .toggle-text {
+            margin-left: .5rem;
+            font-weight: 600;
+        }
+
+        .required-star {
+            color: #d00;
+            margin-left: 2px;
+        }
+
+        .readonly-field {
+            pointer-events: none;
+            opacity: .85;
+        }
+
+        .custom-switch.button-row {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            gap: 30px;
+            margin-top: 20px;
+        }
+
+        .custom-switch.slide-buttons-container {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .custom-switch .switch-label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            font-size: 14px;
+            color: #495057;
+        }
+
+        .custom-switch .switch-input {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .custom-switch .switch-slider {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+            background-color: #ccc;
+            border-radius: 34px;
+            transition: background-color 0.3s ease;
+        }
+
+            .custom-switch .switch-slider:before {
+                content: "";
+                position: absolute;
+                height: 20px;
+                width: 20px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                border-radius: 50%;
+                transition: transform 0.3s ease;
+            }
+
+        .custom-switch .switch-input:checked + .switch-slider {
+            background-color: #dc3545;
+        }
+
+            .custom-switch .switch-input:checked + .switch-slider:before {
+                transform: translateX(24px);
+            }
+
+            .custom-switch .switch-input:checked + .switch-slider + .switch-text {
+                color: #dc3545;
+                font-weight: 600;
+            }
+
+        .custom-switch .switch-text {
+            user-select: none;
+            transition: color 0.3s ease, font-weight 0.3s ease;
+        }
+
+        @@media (max-width: 768px) {
+            .custom-switch.button-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 15px;
+            }
+
+            .custom-switch.slide-buttons-container {
+                flex-direction: column;
+                gap: 15px;
+                width: 100%;
+            }
+
+            .custom-switch .switch-label {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+
+        .button-save {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 200px;
+            justify-content: center;
+            margin: 0;
+        }
+
+            .button-save:hover:not(:disabled) {
+                background-color: #c82333;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+
+            .button-save:active:not(:disabled) {
+                transform: translateY(0);
+            }
+
+            .button-save:disabled {
+                background-color: #6c757d !important;
+                color: #ffffff !important;
+                opacity: 1 !important;
+                cursor: not-allowed !important;
+                pointer-events: none !important;
+            }
+    </style>
+}
+
+@{
+    var apiRequestWMS = Model?.ApiRequestWMS ?? new ApiRequestWMS { Successes = false };
+    var apiRequestJson = JsonConvert.SerializeObject(apiRequestWMS);
+}
 
 @section Scripts {
     <script>
-        document.getElementById("formScn").addEventListener("submit", async function (e) {
-            e.preventDefault();
-            const form = this;
-            const numScn = form.numScn.value.trim();
 
-            if (!numScn) {
-                Swal.fire({
-                    title: 'Campo vacío',
-                    text: 'Por favor, ingrese un número SCN.',
-                    icon: 'warning',
-                    confirmButtonText: 'Aceptar'
-                });
+        const model = {
+            NumScn: '@(Model?.NumScn ?? "")',
+            PtoAlm: '@(Model?.PtoAlm ?? "")',
+            CodPto: '@(Model?.CodPto ?? "")',
+            NumEdc: '@(Model?.NumEdc ?? "")',
+            CodCli: '@(Model?.CodCli ?? "")',
+            CodDir: '@(Model?.CodDir ?? "")',
+            FecEntOriginal: '@(Model?.FecEnt ?? "")',
+            FecCli: '@(Model?.FecCli ?? "")',
+            FecEntR: '@(Model?.FecEntR ?? "")',
+            Estado1: '@(Model?.Estado1 ?? "")',
+            Estado2: '@(Model?.Estado2 ?? "")',
+            Maintenance: '@(Model?.Maintenance ?? "")',
+            InPlan: '@(Model?.InPlan ?? "")',
+            InRoute: '@(Model?.InRoute ?? "")',
+            ApiRequestWMS: @Html.Raw(apiRequestJson),
+            IsRdd: '@(Model?.IsRdd ?? "")',
+            NumRdd: '@(Model?.NumRdd ?? "")'
+        };
+
+        function estatusGnx(estado1) {
+            switch (estado1) {
+                case 'P': return 'Retenido-Transito';
+                case 'T': return 'Transito';
+                case 'I': return 'Impreso';
+                case 'X': return 'Cancelado';
+                case 'E': return 'Entregado';
+                case 'D': return 'Devolucion';
+                case 'G': return 'Generado';
+                default: return 'Estado desconocido';
+            }
+        }
+
+        function canSaveByEstado(estado1) {
+            const ok = ['P','T','I'];
+            return ok.includes(estado1);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Mostrar estatus GNX textual
+            const estText = estatusGnx(model.Estado1);
+            // document.getElementById('estatusGnxText').textContent = estText;
+            const el = document.getElementById('estatusGnxText');
+            if (el) {
+                el.textContent = estatusGnx(model.Estado1);
+            }
+
+            // applyRestrictions();
+
+            // Poner fecha calculada por defecto
+            const fechaCalc = pickFecha(model.FecEntOriginal, model.FecCli, model.FecEntR);
+            if (fechaCalc) {
+                document.getElementById('fechaElegida').value = fechaCalc;
+                document.querySelector('input[name="FecEnt"]').value = fechaCalc; // hidden FecEnt
+            }
+
+            // Set hidden toggles
+            setSNHiddenFields();
+
+            // Mostrar u ocultar RDD
+            const rddSection = document.getElementById('rddSection');
+            if (rddSection) {
+                rddSection.style.display = (model.IsRdd === 'SI') ? 'block' : 'none';
+            }
+
+            // Inicializar colonia original (si hay)
+            const orig = '@Model.ColoniaOriginal';
+            if (orig && orig.trim() !== '') {
+                document.getElementById('originalColonia').textContent = 'Original: ' + orig;
+            } else {
+                // document.getElementById('originalColonia').style.display = 'none';
+            }
+        });
+
+        // ----------------------
+        // Funciones de fecha
+        // ----------------------
+        function pickFecha(FecEnt, FecCli, FecEntR) {
+            // Implementación exacta de la lógica que diste
+            if (!FecCli || FecCli.trim() === '') {
+                if (!FecEntR || FecEntR.trim() === '') {
+                    return formatearFechaHora(FecEnt);
+                } else {
+                    return formatearFechaHora(FecEntR);
+                }
+            } else {
+                return formatearFechaHora(FecCli);
+            }
+        }
+
+        function formatearFechaHora(fechaHoraStr) {
+            if (!fechaHoraStr) return '';
+
+            let partes = fechaHoraStr.split(' ');
+            let fecha = partes[0];
+
+            let [dia, mes, anio] = fecha.split('/');
+
+            return `${anio}-${mes}-${dia}`;
+        }
+
+        document.getElementById('fechaElegida').addEventListener('change', function () {
+            const chosen = this.value;
+            const original = document.getElementById('FecEntOriginal').value;
+            document.querySelector('input[name="FecEnt"]').value = chosen || original;
+
+            const isPos = (chosen && chosen !== original);
+            const val = isPos ? 'true' : 'false';
+            document.querySelector('input[name="IsPosfec"]').value = val;
+
+            console.log('chosen:', chosen);
+            console.log('original:', original);
+            console.log('isPosfec final:', val);
+        });
+
+        // ----------------------
+        // Llenar datos por SCN
+        // ----------------------
+        document.getElementById('btnSearchScn').addEventListener('click', async () => {
+            const num = document.getElementById('numScnSearch').value?.trim();
+            if (!num) {
+                Swal.fire({ icon: 'warning', title: 'Atención', text: 'Ingresa un NumScn.' });
                 return;
             }
 
-            const formData = new FormData(form);
+            try {
+                const res = await fetch(`/Maintenance/GetScnInfo?numScn=${encodeURIComponent(num)}`, { method: 'POST' });
+                if (!res.ok) {
+                    throw new Error('Error al comunicarse con el servidor');
+                }
+                const data = await res.json();
+                // console.log('Respuesta del servidor:', data);
+                if (!data || Object.keys(data).length === 0 || data.notFound) {
+                    Swal.fire({ icon: 'info', title: 'No encontrado', text: 'No se encontró el SCN.' });
+                    return;
+                }
 
-            const response = await fetch(form.action, {
-                method: "POST",
-                body: formData
+                // Poblar
+                populateFromData(data);
+            } catch (err) {
+                console.error(err);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al buscar.' });
+            }
+        });
+
+        function populateFromData(d) {
+            // console.log('populateFromData recibio:', d);
+
+            const setVal = (selector, val) => {
+                const el = document.querySelector(selector);
+                if (el) el.value = val ?? '';
+            };
+
+            // Hidden
+            setVal('input[name="NumScn"]', d.numScn);
+            setVal('input[name="PtoAlm"]', d.ptoAlm);
+            setVal('input[name="CodPto"]', d.codPto);
+            setVal('input[name="NumEdc"]', d.numEdc);
+            setVal('input[name="CodCli"]', d.codCli);
+            setVal('input[name="CodDir"]', d.codDir);
+
+            // Visibles
+            setVal('#numScnSearch', d.numScn);
+            setVal('#NomCli', d.nomCli);
+            setVal('#Ape1Cli', d.ape1Cli);
+            setVal('#Ape2Cli', d.ape2Cli);
+            setVal('#TelCli', d.telCli);
+            setVal('#TelCli1', d.telCli1);
+
+            setVal('#EstadoCombined', d.estado1 + '-' + d.estado2 + '-' + estatusGnx(d.estado1));
+            setVal('#OrdRel', d.ordRel);
+
+            setVal('#Calle', d.calle);
+            document.getElementById('OriginalColonia').textContent = 'Original: ' + d.coloniaOriginal;
+
+            setVal('#NumExt', d.numExt);
+            setVal('#NumInt', d.numInt);
+            setVal('#Referencias', d.referencias);
+            setVal('#Observaciones', d.observaciones);
+
+            setVal('#Longitud', d.longitud);
+            setVal('#Latitud', d.latitud);
+
+            // Toggles
+            const toggle = (id, cond) => {
+                const el = document.getElementById(id);
+                if (el) el.checked = cond;
+            };
+            toggle('switchPanel', d.panel === 'S');
+            toggle('switchVolado', d.volado === 'S');
+            toggle('switchMasGen', d.masGen === 'S');
+            toggle('switchIsCrb', !!d.isCrb);
+            toggle('switchIsConfirmed', !!d.isConfirmed);
+
+            // Estado GNX
+            const estEl = document.getElementById('estatusGnxText');
+            if (estEl) estEl.textContent = estatusGnx(d.estado1);
+
+            // RDD
+            const rdd = document.getElementById('rddSection');
+            if (rdd) {
+                rdd.style.display = (d.isRdd === 'SI') ? 'block' : 'none';
+            }
+
+            // Colonia
+            if (d.codPos) {
+                setVal('#CodPos', d.codPos);
+                fetchColoniasByCodPos(d.codPos, d.coloniaOriginal);
+            }
+
+            // Fecha
+            const fecha = pickFecha(d.fecEnt, d.fecCli, d.fecEntR);
+            if (fecha) {
+                setVal('#fechaElegida', fecha);
+                setVal('#FecEntOriginal', fecha);
+            }
+
+            // WMS
+            if (d.apiRequestWMS) {
+                const wmsSection = document.getElementById('wmsSection');
+                if (wmsSection) {
+                    wmsSection.innerHTML = d.apiRequestWMS.successes
+                        ? `<div><strong>Estatus WMS:</strong> ${d.apiRequestWMS.descEstatus}</div>
+                           <div><strong>EnvioBloqueado:</strong> ${d.apiRequestWMS.envioBloqueado ? 'Sí' : 'No'}</div>`
+                        : `<div class="text-muted">No existe orden en WMS. Se puede intentar crear.</div>`;
+                }
+            }
+
+            // Details
+            if (d.details && d.details.length) {
+                const detailsContainer = document.getElementById('detailsContainer');
+                if (detailsContainer) {
+                    let t = '<table class="table table-sm"><thead><tr><th>#</th><th>Sku</th><th>Descripción</th><th>Piezas</th></tr></thead><tbody>';
+                    d.details.forEach((it, idx) => {
+                        t += `<tr><td>${idx+1}</td><td>${it.sku||''}</td><td>${it.descripcion||''}</td><td>${it.piezas||''}</td></tr>`;
+                    });
+                    t += '</tbody></table>';
+                    detailsContainer.innerHTML = t;
+                }
+            }
+
+            applyRestrictions(d);
+            setSNHiddenFields();
+        }
+
+        function clearRestrictionDivs() {
+            const divs = ['GnxData', 'WmsData', 'ConfirmationData', 'RouteData', 'PlanData'];
+            divs.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.innerHTML = '';
+            });
+        }
+
+        function applyRestrictions(d) {
+            const reasons = [];
+            clearRestrictionDivs();
+            //GNX
+            const estatGnx = estatusGnx(d.estado1);
+            const estatusNoPermitido = !['Transito', 'Retenido-Transito', 'Impreso'].includes(estatGnx);
+            const gnxDiv = document.getElementById('GnxData');
+
+            if(gnxDiv) {
+                if(estatusNoPermitido){
+                    gnxDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento, orden en genesix ${estatGnx}</small>`;
+                    reasons.push(`El estatus de GNX no es válido (${estatGnx})`);
+                } else {
+                    // gnxDiv.innerHTML = `<small style="color:green;">Se puede dar mantenimiento, ${estatGnx}</small>`;
+                }
+            }
+
+            // WMS
+            const wmsDiv = document.getElementById('WmsData');
+            if (wmsDiv) {
+                if (d.apiRequestWMS.successes) {
+                    if (d.apiRequestWMS.idEstatus === 0 || d.apiRequestWMS.idEstatus === 99) {
+                        // wmsDiv.innerHTML = `<small style="color:green;">Se puede dar mantenimiento, orden en estatus ${d.apiRequestWMS.descEstatus}</small>`;
+                    } else {
+                        wmsDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento, orden en estatus ${d.apiRequestWMS.descEstatus}</small>`;
+                        reasons.push(`El estatus de WMS no es válido (${d.apiRequestWMS.descEstatus})`);
+                    }
+                } else {
+                    if(!estatusNoPermitido) {
+                        wmsDiv.innerHTML = `<small style="color:green;">No existe orden en WMS. Se puede intentar crear.</small>`;
+                    }
+                }
+            }
+
+            // Confirmation / Maintenance
+            const confDiv = document.getElementById('ConfirmationData');
+            if (confDiv) {
+                if (d.maintenance === 'NO DISPONIBLE') {
+                    confDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento: NO DISPONIBLE</small>`;
+                    reasons.push('Registro no apto para mantenimiento');
+                } else {
+                    // confDiv.innerHTML = `<small style="color:green;">Se puede dar mantenimiento</small>`;
+                    if(d.ultConfirm !== 'NO'){
+                        confDiv.innerHTML = `<small style="color:green;">Ultima confirmacion realizada ${d.ultConfirm}</small>`;
+                    }
+                }
+            }
+
+            // Route
+            const routDiv = document.getElementById('RouteData');
+            if (routDiv) {
+                if (d.inRoute === 'NO') {
+                    // routDiv.innerHTML = `<small style="color:green;">Se puede dar mantenimiento, no está en ruta</small>`;
+                } else {
+                    routDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento: se encuentra en la ruta ${d.inRoute}</small>`;
+                    reasons.push('SCN está en ruta');
+                }
+            }
+
+            // Plan
+            const planDiv = document.getElementById('PlanData');
+            if (planDiv) {
+                if (d.inPlan === 'NO') {
+                    // planDiv.innerHTML = `<small style="color:green;">Se puede dar mantenimiento, no está en planeación</small>`;
+                } else {
+                    planDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento: se encuentra en planeación</small>`;
+                    reasons.push('SCN está en planeación');
+                }
+            }
+
+            // Botón Guardar
+            console.log(reasons.length)
+            const btn = document.getElementById('btnGuardar');
+            if (btn) {
+                if (reasons.length > 0) {
+                    btn.disabled = true;
+                } else {
+                    btn.disabled = false;
+                }
+            }
+        }
+
+
+        // ----------------------
+        // CodPos -> GetColByCodPos
+        // ----------------------
+        let lastCodPos = document.getElementById('CodPos').value.trim();
+
+        document.getElementById('CodPos').addEventListener('blur', function() {
+            const cp = this.value.trim();
+            if (!cp || cp === lastCodPos) return;
+            lastCodPos = cp;
+            fetchColoniasByCodPos(cp);
+        });
+
+        async function fetchColoniasByCodPos(codpos) {
+            try {
+                const res = await fetch(`/Maintenance/GetColByCodPos?codPos=${encodeURIComponent(codpos)}`);
+                if (!res.ok) throw new Error('Error del servidor');
+                const data = await res.json();
+
+                // Validar estructura esperada
+                if (data && data.data) {
+                    const estado = data.data.estado || '';
+                    const municipio = data.data.municipio || '';
+                    const colonias = data.data.colonias || [];
+
+                    if (estado) document.getElementById('Estado').value = estado;
+                    if (municipio) document.getElementById('Municipio').value = municipio;
+
+                    const dd = document.getElementById('ColoniaDropdown');
+                    dd.innerHTML = '<option value="">-- Selecciona --</option>';
+
+                    if (colonias.length) {
+                        colonias.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c;
+                            opt.textContent = c;
+                            dd.appendChild(opt);
+                        });
+                    }
+
+                    const origDiv = document.getElementById('OriginalColonia');
+                    let originalColonia = '';
+                    if (origDiv) {
+                        originalColonia = origDiv.textContent.replace('Original: ', '').trim();
+                    }
+
+                    // Mostrar colonia original y tratar de seleccionarla
+                    if (originalColonia) {
+                        document.getElementById('OriginalColonia').textContent = 'Original: ' + originalColonia;
+                        [...dd.options].forEach(o => {
+                            if (o.text === originalColonia || o.value === originalColonia) {
+                                o.selected = true;
+                            }
+                        });
+                    } else {
+                        document.getElementById('OriginalColonia').style.display = 'none';
+                    }
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Sin resultados', text: 'No se encontraron colonias para este código postal.' });
+                }
+            } catch (err) {
+                console.error(err);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'No se pudieron obtener colonias.' });
+            }
+        }
+
+        //----------------------
+        document.querySelectorAll('.toggle-sn').forEach(el => {
+            el.addEventListener('change', setSNHiddenFields);
+        });
+        document.getElementById('switchIsCrb').addEventListener('change', function() {
+            document.querySelector('input[name="IsCrb"]').value = this.checked ? 'true' : 'false';
+        });
+        document.getElementById('switchIsConfirmed').addEventListener('change', function() {
+            document.querySelector('input[name="IsConfirmed"]').value = this.checked ? 'true' : 'false';
+        });
+
+        function setSNHiddenFields() {
+            document.getElementById('hPanel').value = document.getElementById('switchPanel').checked ? 'S' : 'N';
+            document.getElementById('hVolado').value = document.getElementById('switchVolado').checked ? 'S' : 'N';
+            document.getElementById('hMasGen').value = document.getElementById('switchMasGen').checked ? 'S' : 'N';
+        }
+
+        // ----------------------
+        // Envío del form 
+        // ----------------------
+        document.getElementById('maintenanceForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            console.log('Valor actual de IsPosfec:', document.querySelector('input[name="IsPosfec"]').value);
+
+            // Llenar campos que si están vacíos mandan "X"
+            if (!document.getElementById('NumInt').value.trim()) document.getElementById('NumInt').value = 'X';
+            if (!document.getElementById('Calle').value.trim()) document.getElementById('Calle').value = 'X';
+            if (!document.getElementById('Referencias').value.trim()) document.getElementById('Referencias').value = 'X';
+            if (!document.getElementById('Observaciones').value.trim()) document.getElementById('Observaciones').value = 'X';
+
+            const lon = parseFloat(document.getElementById('Longitud').value);
+            const lat = parseFloat(document.getElementById('Latitud').value);
+            if (isNaN(lon) || isNaN(lat) || (lon === 0 && lat === 0)) {
+                Swal.fire({ icon: 'warning', title: 'Coordenadas inválidas', text: 'Las coordenadas no pueden ser 0,0 o vacías.' });
+                return; // cancela el envío
+            }
+
+            // Colonia: si dropdown vacio y existe original, mandar original, si no pedir obligatorio
+            const colSel = document.getElementById('ColoniaDropdown').value;
+            if (!colSel) {
+                const orig = document.getElementById('OriginalColonia')?.textContent.replace('Original: ', '').trim();
+                if (orig && orig.trim() !== '') {
+                    // crear campo oculto para enviar original
+                    const hiddenCol = document.createElement('input');
+                    hiddenCol.type = 'hidden';
+                    hiddenCol.name = 'Colonia';
+                    hiddenCol.value = orig;
+                    this.appendChild(hiddenCol);
+                } else {
+                    Swal.fire({ icon: 'warning', title: 'Falta Colonia', text: 'Selecciona una colonia.' });
+                    return;
+                }
+            }
+
+            // Fecha e IsPosfec
+            const fechaElegida = document.getElementById('fechaElegida').value;
+
+            if (fechaElegida) {
+                const partes = fechaElegida.split('-'); // [yyyy, MM, dd]
+                const fechaFormateada = partes[2] + partes[1] + partes[0]; // ddMMyyyy
+                document.querySelector('input[name="FecEnt"]').value = fechaFormateada;
+            }
+
+            // IsConfirmed y IsCrb ya están en hidden
+            setSNHiddenFields(); // asegurar xd
+
+            // Última validación: NumExt obligatorio
+            if (!document.getElementById('NumExt').value.trim()) {
+                Swal.fire({ icon: 'error', title: 'Error', text: 'NumExt es obligatorio.' });
+                return;
+            }
+
+            // // Revalidar reglas de bloqueo
+            // applyRestrictions();
+            // if (document.getElementById('btnGuardar').disabled) {
+            //     Swal.fire({ icon: 'error', title: 'No permitido', text: 'No se puede guardar por las restricciones mostradas.' });
+            //     return;
+            // }
+
+            // Enviar form (POST)
+            console.log('Valor actual de IsPosfec:',
+            document.querySelector('input[name="IsPosfec"]').value);
+                const formData = new FormData(this);
+                fetch('/Maintenance/UpdateScnInfo', { method: 'POST', body: formData })
+                .then(r => {
+                    if (!r.ok) throw new Error('error al guardar');
+                    return r.json();
+                })
+                .then(res => {
+                    if (res.success) {
+                        Swal.fire({ icon: 'success', title: 'Guardado', text: 'Datos guardados correctamente.' });
+                    } else {
+                        Swal.fire({ icon: 'error', title: 'No guardado', text: res.message || 'Error desconocido.' });
+                    }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al guardar.' });
             });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                Swal.fire({
-                    title: 'SCN no consultado',
-                    text: errorText,
-                    icon: 'warning',
-                    confirmButtonText: 'Aceptar'
-                });
-                return;
-            }
-
-            const html = await response.text();
-            document.open();
-            document.write(html);
-            document.close();
         });
+
+        // ----------------------
+        // Recalcular longitud/latitud
+        // ----------------------
+
+        async function getCoordinatesGoogle(externo, calle, colonia, municipio, estado, cp, pais) {
+            const responseApiKey = await fetch("/OracleData/GetApiKey");
+            const apiKey = await responseApiKey.json();
+
+            const parts = [externo, calle, colonia, municipio, estado, cp, pais]
+                .filter(x => x && x.trim() !== '');
+            const address = parts.join(', ');
+
+            const url = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${apiKey}`;
+            const $btn = $("#btnRecalcular");
+
+            $btn.prop("disabled", true).text("Buscando...");
+
+            $.get(url, function (data) {
+                if (data.status === "OK") {
+                    const location = data.results[0].geometry.location;
+                    $("#Latitud").val(location.lat);
+                    $("#Longitud").val(location.lng);
+                } else {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Sin resultados",
+                        text: "No se encontraron coordenadas para la dirección ingresada.",
+                        confirmButtonColor: "#dc3545"
+                    });
+                }
+            })
+            .fail(() => {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error de conexión",
+                    text: "No se pudo conectar con el servicio de geocodificación.",
+                    confirmButtonColor: "#dc3545"
+                });
+            })
+            .always(() => {
+                $btn.prop("disabled", false).text("Recalcular");
+            });
+        }
+
+        function getCoordinates(calle, colonia, municipio, estado, cp, pais) {
+            const parts = [calle, colonia, municipio, estado, cp, pais]
+                .filter(x => x && x.trim() !== '');
+
+            const address = parts.join(', ');
+
+            const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}`;
+            const $btn = $("#btnRecalcular");
+
+            $btn.prop("disabled", true).text("Buscando...");
+
+            $.get(url, function (data) {
+                if (data && data.length > 0) {
+                    const lat = data[0].lat;
+                    const lon = data[0].lon;
+                    $("#Latitud").val(lat);
+                    $("#Longitud").val(lon);
+                } else {
+                    Swal.fire({
+                        icon: "warning",
+                        title: "Sin resultados",
+                        text: "No se encontraron coordenadas para la dirección ingresada.",
+                        confirmButtonColor: "#dc3545"
+                    });
+                }
+            })
+            .fail(() => {
+                Swal.fire({
+                    icon: "error",
+                    title: "Error de conexión",
+                    text: "No se pudo conectar con el servicio de geocodificación.",
+                    confirmButtonColor: "#dc3545"
+                });
+            })
+            .always(() => {
+                $btn.prop("disabled", false).text("Recalcular");
+            });
+        }
+
+        $(document).ready(function () {
+            $("#btnRecalcular").on("click", function () {
+                // const interno = $("#NumInt").val() || "";
+                // const externo = $("#NumExt").val() || "";
+                const calle = 'Calle' + $("#Calle").val() || "";
+                const colonia = $("#ColoniaDropdown").val() || "";
+                const municipio = $("#Municipio").val() || "";
+                const estado = $("#Estado").val() || "";
+                const cp = $("#CodPos").val() || "";
+                const pais = "México";
+
+                if (!calle || !colonia || !municipio || !estado || !cp) {
+                    Swal.fire({
+                        icon: "info",
+                        title: "Datos incompletos",
+                        text: "Debes llenar todos los campos de dirección antes de recalcular.",
+                        confirmButtonColor: "#dc3545"
+                    });
+                    return;
+                }
+
+                getCoordinates(calle, colonia, municipio, estado, cp, pais);
+            });
+        });
+
+        // ----------------------
+        // Fecha otra vez
+        // ----------------------
+
+        const fechaInput = document.getElementById('fechaElegida');
+        const hoy = new Date().toISOString().split('T')[0];
+        fechaInput.min = hoy;
+
+        fechaInput.addEventListener('change', function() {
+            if (this.value < hoy) {
+                alert('No puedes seleccionar una fecha menor a hoy.');
+                this.value = hoy;
+            }
+        });
+
     </script>
 }

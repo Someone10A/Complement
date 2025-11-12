@@ -1,48 +1,67 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Data.Odbc;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using ML;
 using ML.CartaPorteLga;
 using BL.CartaPorteBase;
 
-namespace BL.CartaPorteLga
+namespace BL.CartaPorteWMS
 {
-    public class CartaPorteLga
+    public class CartaPorteWMS
     {
         private static object GetSafeValue(System.Data.Common.DbDataReader reader, int index, string fieldName, string context = " ", string scn = " ")
         {
             return CartaPorteBase.CartaPorteBase.GetSafeValue(reader, index, fieldName, context, scn);
         }
 
+        // Método para generar id_uni desde car_sal
+        private static string GenerarIdUniDesdeCarSal(string carSal)
+        {
+            if (string.IsNullOrEmpty(carSal))
+            {
+                return "SEAOIC";
+            }
+
+            // Reemplazar prefijos
+            string processed = carSal;
+            if (processed.StartsWith("VAL", StringComparison.OrdinalIgnoreCase))
+            {
+                processed = "870" + processed.Substring(3);
+            }
+            else if (processed.StartsWith("CIG", StringComparison.OrdinalIgnoreCase))
+            {
+                processed = "840" + processed.Substring(3);
+            }
+
+            // Extraer solo números
+            string numbersOnly = Regex.Replace(processed, @"[^0-9]", "");
+            
+            return $"SEAOIC{numbersOnly}";
+        }
+
         // Métodos principales del controlador
-        public static async Task<ML.Result> GetScnByCono(string precon, string mode)
+        public static async Task<ML.Result> GetScnByCono(string carSal, string mode)
         {
             ML.Result result = new ML.Result();
             try
             {
-                var scns = await GetScnsByConoInternal(precon, mode);
-                var resultadoEmbarque = await ValidarEstadoEmbarque(precon, mode);
+                var scns = await GetScnsByConoInternal(carSal, mode);
                 
-                if (resultadoEmbarque != 3)
+                if (scns == null || scns.Count == 0)
                 {
-                    if (resultadoEmbarque == -1)
-                    {
-                        result.Correct = false;
-                        result.Message = "No se encontro folio de conocimiento";
-                        return result;
-                    }
                     result.Correct = false;
-                    result.Message = "Folio y conocimiento de embarque no cerrados";
+                    result.Message = "No se encontraron SCNs para la carga de salida";
                     return result;
                 }
                 
                 var results = scns.Select(scn => new Dictionary<string, object> 
                 { 
-                    ["sales_check"] = scn 
+                    ["num_scn"] = scn 
                 }).ToList();
                 
                 result.Correct = true;
@@ -67,87 +86,48 @@ namespace BL.CartaPorteLga
             return await CartaPorteBase.CartaPorteBase.GetUnidades(mode);
         }
 
-        private static async Task<List<string>> GetScnsByConoInternal(string precon, string mode)
+        private static async Task<List<string>> GetScnsByConoInternal(string carSal, string mode)
         {
             var scns = new List<string>();
+            //System.Console.WriteLine($"[GET SCNs BY CAR_SAL WMS] Buscando SCNs para car_sal: {carSal}");
             
-            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringLga(mode)))
+            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGnx(mode)))
             {
                 await connection.OpenAsync();
                 
                 string query = @"
-                    SELECT DISTINCT lgahventa.sales_check
-                    FROM lgahventa
-                    JOIN lgadventa ON lgahventa.cod_empresa = lgadventa.cod_empresa
-                        AND lgahventa.cd_id = lgadventa.cd_id
-                        AND lgahventa.sales_check = lgadventa.sales_check
-                    JOIN lgaetiqeta ON lgahventa.cod_empresa = lgaetiqeta.cod_empresa
-                        AND lgahventa.cd_id = lgaetiqeta.cd_id
-                        AND lgadventa.no_etiqueta = lgaetiqeta.no_etiqueta
-                    WHERE lgahventa.cod_empresa = 1
-                      AND lgahventa.cd_id = 870
-                      AND lgahventa.tip_entrega = 1
-                      AND lgaetiqeta.no_conoc = ?
+                    SELECT num_scn
+                    FROM ora_ruta
+                    WHERE car_sal = ?
                 ";
 
                 using (var command = new OdbcCommand(query, connection))
                 {
-                    command.Parameters.Add(new OdbcParameter("@no_precon", precon));
+                    command.Parameters.Add(new OdbcParameter("@car_sal", carSal));
                     
                     using (var reader = await command.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
                         {
-                            var salesCheck = GetSafeValue(reader, 0, "sales_check", "GetScnsByFolio");
-                            scns.Add(salesCheck?.ToString());
+                            var numScn = GetSafeValue(reader, 0, "num_scn", "GetScnsByConoInternal");
+                            if (numScn != null)
+                            {
+                                scns.Add(numScn.ToString());
+                            }
                         }
                     }
                 }
             }
             
+            //System.Console.WriteLine($"[GET SCNs BY CAR_SAL WMS] SCNs encontrados: {scns.Count} - {string.Join(", ", scns)}");
             return scns;
         }
 
-        private static async Task<int> ValidarEstadoEmbarque(string folio, string mode)
+        // Método para obtener car_sal desde folio (que ahora es car_sal)
+        private static async Task<string?> GetCarSalFromFolio(string folio, string mode)
         {
-            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringLga(mode)))
-            {
-                await connection.OpenAsync();
-                
-                string query = @"
-                    SELECT L.st_embarque
-                      FROM lgahembrqe L, lgadembrqe U
-                     WHERE L.cod_empresa = U.cod_empresa
-                       AND L.cd_id = U.cd_id
-                       AND L.folio_embarque = U.folio_embarque
-                       AND L.cod_empresa = 1
-                       AND L.cd_id = 870
-                       AND U.no_conoc = ?
-                ";
-                
-                using (var command = new OdbcCommand(query, connection))
-                {
-                    command.Parameters.Add(new OdbcParameter("@no_conoc", folio));
-                    
-                    using (var reader = await command.ExecuteReaderAsync())
-                    {
-                        if (await reader.ReadAsync())
-                        {
-                            var estado = GetSafeValue(reader, 0, "st_embarque", "ValidarEstadoEmbarque");
-                            
-                            if (estado == null)
-                            {
-                                return -1;
-                            }
-                            
-                            var estadoInt = Convert.ToInt32(estado);
-                            return estadoInt;
-                        }
-                    }
-                }
-            }
-            
-            return -1;
+            // En WMS, el folio es directamente el car_sal
+            return folio;
         }
 
         // Método principal EnviarCarta
@@ -156,7 +136,7 @@ namespace BL.CartaPorteLga
             ML.Result result = new ML.Result();
             try
             {
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Iniciando proceso para folio: {request?.Folio}, FechaSalida: {request.FechaSalida}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Iniciando proceso para folio: {request?.Folio}, FechaSalida: {request.FechaSalida}");
                 
                 if (request == null || string.IsNullOrEmpty(request.Folio))
                 {
@@ -165,31 +145,36 @@ namespace BL.CartaPorteLga
                     return result;
                 }
 
-                var idUni = $"SEAOIC{request.Folio}";
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] ID generado: {idUni}");
+                // Obtener car_sal (el folio es el car_sal en WMS)
+                var carSal = request.Folio;
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Carga de salida: {carSal}");
+                
+                // Generar id_uni desde car_sal
+                var idUni = GenerarIdUniDesdeCarSal(carSal);
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] ID generado: {idUni}");
                 var codEmp = 1;
                 
-                // Verificar duplicados
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Obteniendo SKUs para folio: {request.Folio}");
-                var skusOrderedByParada = await GetSkusByFolioOrderedByParada(request.Folio, mode);
+                // Obtener SKUs ordenados por parada usando las nuevas tablas
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Obteniendo SKUs para car_sal: {carSal}");
+                var skusOrderedByParada = await GetSkusByCarSalOrderedByParada(carSal, mode);
                 if (skusOrderedByParada == null || skusOrderedByParada.Count == 0)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] No se encontraron SKUs para el folio {request.Folio}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] No se encontraron SKUs para la carga de salida {carSal}");
                     result.Correct = false;
-                    result.Message = $"No se encontraron SKUs para el folio {request.Folio}";
+                    result.Message = $"No se encontraron SKUs para la carga de salida {carSal}";
                     return result;
                 }
                 
                 var skusByParada = skusOrderedByParada.GroupBy(s => s["no_parada"]).OrderBy(g => g.Key).ToList();
                 var totalEntregas = skusByParada.Count;
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Total de entregas encontradas: {totalEntregas}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Total de entregas encontradas: {totalEntregas}");
                 
                 // Verificar duplicados
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Verificando duplicados para ID: {idUni}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Verificando duplicados para ID: {idUni}");
                 var duplicadosUbi = await CartaPorteBase.CartaPorteBase.VerificarDuplicadosUbi(idUni, codEmp, totalEntregas, mode);
                 if (duplicadosUbi.Count > 0)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Duplicados encontrados en ubi_tim2: {string.Join(", ", duplicadosUbi)}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Duplicados encontrados en ubi_tim2: {string.Join(", ", duplicadosUbi)}");
                     result.Correct = false;
                     result.Message = $"ID ya generado: {idUni}";
                     return result;
@@ -198,7 +183,7 @@ namespace BL.CartaPorteLga
                 var duplicadosInt = await CartaPorteBase.CartaPorteBase.VerificarDuplicadosInt(idUni, codEmp, mode);
                 if (duplicadosInt)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Duplicados encontrados en int_tim24");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Duplicados encontrados en int_tim24");
                     result.Correct = false;
                     result.Message = $"ID ya generado: {idUni}";
                     return result;
@@ -207,7 +192,7 @@ namespace BL.CartaPorteLga
                 var duplicadosTrans = await CartaPorteBase.CartaPorteBase.VerificarDuplicadosTrans(idUni, codEmp, mode);
                 if (duplicadosTrans)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Duplicados encontrados en trans_tim24");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Duplicados encontrados en trans_tim24");
                     result.Correct = false;
                     result.Message = $"ID ya generado: {idUni}";
                     return result;
@@ -216,7 +201,7 @@ namespace BL.CartaPorteLga
                 var duplicadosOper = await CartaPorteBase.CartaPorteBase.VerificarDuplicadosOper(idUni, codEmp, mode);
                 if (duplicadosOper)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Duplicados encontrados en oper_tim2");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Duplicados encontrados en oper_tim2");
                     result.Correct = false;
                     result.Message = $"ID ya generado: {idUni}";
                     return result;
@@ -225,61 +210,61 @@ namespace BL.CartaPorteLga
                 var duplicadosDom = await CartaPorteBase.CartaPorteBase.VerificarDuplicadosDom(idUni, codEmp, totalEntregas, mode);
                 if (duplicadosDom.Count > 0)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Duplicados encontrados en dom_tim2: {string.Join(", ", duplicadosDom)}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Duplicados encontrados en dom_tim2: {string.Join(", ", duplicadosDom)}");
                     result.Correct = false;
                     result.Message = $"ID ya generado: {idUni}";
                     return result;
                 }
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] No se encontraron duplicados, continuando...");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] No se encontraron duplicados, continuando...");
 
                 // Obtener información del operador
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Obteniendo información del operador: {request.Operador}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Obteniendo información del operador: {request.Operador}");
                 var operadorInfo = await CartaPorteBase.CartaPorteBase.GetOperadorInfo(request.Operador, mode);
                 if (operadorInfo == null)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] No existe información del operador {request.Operador}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] No existe información del operador {request.Operador}");
                     result.Correct = false;
                     result.Message = $"No existe información del operador {request.Operador}";
                     return result;
                 }
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Operador encontrado: RFC={operadorInfo["rfc_ope"]}, Lic={operadorInfo["lic_ope"]}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Operador encontrado: RFC={operadorInfo["rfc_ope"]}, Lic={operadorInfo["lic_ope"]}");
 
                 // Obtener información del transporte
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Obteniendo información del transporte: {request.Unidad}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Obteniendo información del transporte: {request.Unidad}");
                 var transporteInfo = await CartaPorteBase.CartaPorteBase.GetTransporteInfo(request.Unidad, mode);
                 if (transporteInfo == null)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] No existe información del transporte {request.Unidad}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] No existe información del transporte {request.Unidad}");
                     result.Correct = false;
                     result.Message = $"No existe información del transporte {request.Unidad}";
                     return result;
                 }
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Transporte encontrado: Placa={transporteInfo["pla_vei"]}, Permiso={transporteInfo["per_sct"]}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Transporte encontrado: Placa={transporteInfo["pla_vei"]}, Permiso={transporteInfo["per_sct"]}");
 
                 // Obtener domicilios
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Obteniendo domicilios para folio: {request.Folio}");
-                var domicilios = await GetDomiciliosPorFolio(request.Folio, mode);
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Obteniendo domicilios para car_sal: {carSal}");
+                var domicilios = await GetDomiciliosPorCarSal(carSal, mode);
                 if (domicilios == null || domicilios.Count == 0)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] No se encontraron domicilios para el folio {request.Folio}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] No se encontraron domicilios para la carga de salida {carSal}");
                     result.Correct = false;
-                    result.Message = $"No se encontraron domicilios para el folio {request.Folio}";
+                    result.Message = $"No se encontraron domicilios para la carga de salida {carSal}";
                     return result;
                 }
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Domicilios encontrados: {domicilios.Count}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Domicilios encontrados: {domicilios.Count}");
 
                 // Validar domicilios
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Validando domicilios...");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Validando domicilios...");
                 var validationResult = await ValidarDomicilios(domicilios, mode);
                 if (!validationResult.Correct)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Error en validación de domicilios: {validationResult.Message}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Error en validación de domicilios: {validationResult.Message}");
                     return validationResult;
                 }
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Domicilios validados correctamente");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Domicilios validados correctamente");
 
                 // Procesar entregas
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Procesando códigos fiscales por SKU...");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Procesando códigos fiscales por SKU...");
                 var skusInfoList = new List<List<Dictionary<string, object>>>();
                 var codigosFiscalesList = new List<List<Dictionary<string, object>>>();
                 
@@ -289,14 +274,14 @@ namespace BL.CartaPorteLga
                     var skus = paradaGroup.ToList();
                     var codigosFiscales = new List<Dictionary<string, object>>();
                     
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Procesando parada {paradaGroup.Key} con {skus.Count} SKUs");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Procesando parada {paradaGroup.Key} con {skus.Count} SKUs");
                     
                     foreach (var skuInfo in skus)
                     {
-                        var sku = skuInfo["sku"]?.ToString();
+                        var sku = skuInfo["int_art"]?.ToString();
                         if (string.IsNullOrEmpty(sku))
                         {
-                            //System.Console.WriteLine($"[ENVIAR CARTA LGA] SKU nulo o vacío en parada {paradaGroup.Key}");
+                            //System.Console.WriteLine($"[ENVIAR CARTA WMS] SKU nulo o vacío en parada {paradaGroup.Key}");
                             result.Correct = false;
                             result.Message = $"SKU nulo o vacío en parada {paradaGroup.Key}";
                             return result;
@@ -305,7 +290,7 @@ namespace BL.CartaPorteLga
                         var codigoFiscal = await GetCodigosFiscalesPorSku(sku, mode);
                         if (codigoFiscal == null && !sku.StartsWith("999"))
                         {
-                            //System.Console.WriteLine($"[ENVIAR CARTA LGA] No se encontraron códigos fiscales para SKU {sku}");
+                            //System.Console.WriteLine($"[ENVIAR CARTA WMS] No se encontraron códigos fiscales para SKU {sku}");
                             result.Correct = false;
                             result.Message = $"No se encontraron códigos fiscales para SKU {sku}";
                             return result;
@@ -314,7 +299,7 @@ namespace BL.CartaPorteLga
                         if (codigoFiscal != null)
                         {
                             codigosFiscales.Add(codigoFiscal);
-                            //System.Console.WriteLine($"[ENVIAR CARTA LGA] SKU {sku}: Código fiscal={codigoFiscal["cve_codfis"]}, Peso={codigoFiscal["pes_art"]}");
+                            //System.Console.WriteLine($"[ENVIAR CARTA WMS] SKU {sku}: Código fiscal={codigoFiscal["cve_codfis"]}, Peso={codigoFiscal["pes_art"]}");
                         }
                     }
                     
@@ -323,41 +308,41 @@ namespace BL.CartaPorteLga
                 }
 
                 // Procesar cada entrega
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Procesando {totalEntregas} entregas...");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Procesando {totalEntregas} entregas...");
                 for (int i = 0; i < skusByParada.Count; i++)
                 {
                     var paradaGroup = skusByParada[i];
                     var entregaNum = i + 1;
                     var codigosFiscales = codigosFiscalesList[i];
                     var skus = skusInfoList[i];
-                    var salesChecks = skus.Select(s => s["sales_check"].ToString()).Distinct().ToList();
+                    var numScns = skus.Select(s => s["num_scn"].ToString()).Distinct().ToList();
                     
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Procesando entrega {entregaNum} de {totalEntregas} - Sales Checks: {string.Join(", ", salesChecks)}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Procesando entrega {entregaNum} de {totalEntregas} - SCNs: {string.Join(", ", numScns)}");
                     
                     var idOri = entregaNum == 1 ? "OR000870" : $"OR00000{entregaNum - 1}";
                     var idDes = $"DE00000{entregaNum}";
                     
-                    var domiciliosScn = domicilios.Where(d => salesChecks.Contains(d["sales_check"].ToString())).ToList();
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Entrega {entregaNum}: {domiciliosScn.Count} domicilios encontrados");
+                    var domiciliosScn = domicilios.Where(d => numScns.Contains(d["num_scn"].ToString())).ToList();
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Entrega {entregaNum}: {domiciliosScn.Count} domicilios encontrados");
                     
                     DateTime fecSal = entregaNum == 1 ? request.FechaSalida : request.FechaSalida.AddHours(entregaNum - 1).AddMinutes(10 * (entregaNum - 1));
                     var fecLle = fecSal.AddHours(1);
-                    var distancia = await CartaPorteBase.CartaPorteBase.CalcularDistancia(entregaNum, domiciliosScn[0]);
+                    var distancia = await CartaPorteBase.CartaPorteBase.CalcularDistancia(entregaNum, domiciliosScn.Count > 0 ? domiciliosScn[0] : null);
                     
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Entrega {entregaNum}: Insertando origen-destino {idOri} -> {idDes}");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Entrega {entregaNum}: Insertando origen-destino {idOri} -> {idDes}");
                     await CartaPorteBase.CartaPorteBase.InsertarOrigenDestino(idOri, idDes, fecSal, fecLle, distancia, idUni, codEmp, entregaNum, mode);
                     
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Entrega {entregaNum}: Insertando {codigosFiscales.Count} mercancías");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Entrega {entregaNum}: Insertando {codigosFiscales.Count} mercancías");
                     foreach (var codigoFiscal in codigosFiscales)
                     {
                         await CartaPorteBase.CartaPorteBase.InsertarMercancia(codigoFiscal, idOri, idDes, idUni, codEmp, mode);
                     }
                     
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Entrega {entregaNum}: Insertando domicilio origen");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Entrega {entregaNum}: Insertando domicilio origen");
                     await CartaPorteBase.CartaPorteBase.InsertarDomicilioOrigen(idOri, idUni, codEmp, entregaNum, mode);
                     
                     var domiciliosUnicos = AgruparDomiciliosUnicos(domiciliosScn);
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Entrega {entregaNum}: Insertando {domiciliosUnicos.Count} domicilios únicos");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Entrega {entregaNum}: Insertando {domiciliosUnicos.Count} domicilios únicos");
                     foreach (var domicilioUnico in domiciliosUnicos)
                     {
                         await InsertarDomicilio(idDes, domicilioUnico, idUni, codEmp, mode);
@@ -365,7 +350,7 @@ namespace BL.CartaPorteLga
                 }
 
                 // Insertar transporte
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Calculando peso bruto total...");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Calculando peso bruto total...");
                 decimal pesoBrutoTotal = 0;
                 foreach (var codigosFiscales in codigosFiscalesList)
                 {
@@ -374,9 +359,9 @@ namespace BL.CartaPorteLga
                         pesoBrutoTotal += (decimal)codigoFiscal["pes_art"];
                     }
                 }
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Peso bruto total: {pesoBrutoTotal} kg");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Peso bruto total: {pesoBrutoTotal} kg");
                 
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Insertando transporte y operador...");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Insertando transporte y operador...");
                 await CartaPorteBase.CartaPorteBase.InsertarTransporte(transporteInfo, idUni, codEmp, pesoBrutoTotal, mode);
                 await CartaPorteBase.CartaPorteBase.InsertarOperador(operadorInfo, request.Operador, idUni, codEmp, mode);
 
@@ -386,15 +371,15 @@ namespace BL.CartaPorteLga
                 
                 if (esOperadorEspecifico)
                 {
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Operador específico detectado: {request.Operador}, generando CSVs...");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Operador específico detectado: {request.Operador}, generando CSVs...");
                     await CartaPorteBase.CartaPorteBase.GenerarCSVsDespuesInserts(request, idUni, codEmp, mode);
-                    //System.Console.WriteLine($"[ENVIAR CARTA LGA] Proceso completado exitosamente para operador específico");
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Proceso completado exitosamente para operador específico");
                     result.Correct = true;
                     result.Object = new { message = "Folio enviado a " + request.Operador, entregas = skusByParada.Count };
                     return result;
                 }
 
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Proceso completado exitosamente. ID generado: {idUni}, Entregas: {skusByParada.Count}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Proceso completado exitosamente. ID generado: {idUni}, Entregas: {skusByParada.Count}");
                 result.Correct = true;
                 result.Object = new { message = "ID generado: " + idUni, entregas = skusByParada.Count };
                 return result;
@@ -404,8 +389,8 @@ namespace BL.CartaPorteLga
                 result.Correct = false;
                 result.Message = $"Error interno del servidor: {ex.Message}";
                 result.Ex = ex;
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Error: {ex.Message}");
-                //System.Console.WriteLine($"[ENVIAR CARTA LGA] Stack trace: {ex.StackTrace}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Error: {ex.Message}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Stack trace: {ex.StackTrace}");
                 return result;
             }
         }
@@ -421,14 +406,15 @@ namespace BL.CartaPorteLga
 
             foreach (var domicilio in domicilios)
             {
-                var salesCheck = domicilio["sales_check"]?.ToString();
+                var numScn = domicilio["num_scn"]?.ToString();
+                var codDir = domicilio["cod_dir"]?.ToString();
                 var codPostal = domicilio["cod_postal"]?.ToString();
                 var edoEntFed = domicilio["edo_entfed"]?.ToString();
                 var delMunicipio = domicilio["del_municipio"]?.ToString();
                 var colPoblacion = domicilio["col_poblacion"]?.ToString();
-                var numIntExt = domicilio["direc_cte1"]?.ToString();
+                var numExt = domicilio["num_ext"]?.ToString();
 
-                //System.Console.WriteLine($"[VALIDAR DOMICILIOS LGA] Validando domicilio - Sales Check: {salesCheck}");
+                //System.Console.WriteLine($"[VALIDAR DOMICILIOS WMS] Validando domicilio - SCN: {numScn}, cod_dir: {codDir}");
 
                 var existeEstado = await CartaPorteBase.CartaPorteBase.GetEstado(edoEntFed, mode);
                 if (existeEstado != null)
@@ -436,8 +422,8 @@ namespace BL.CartaPorteLga
                     var codigosMunicipio = await CartaPorteBase.CartaPorteBase.GetCodigosMunicipio(delMunicipio, edoEntFed, mode);
                     if (codigosMunicipio == null)
                     {
-                        notFoundMunicipio.Add($"{salesCheck} - No existe municipio: '{delMunicipio}'");
-                        //System.Console.WriteLine($"[VALIDAR DOMICILIOS LGA] Domicilio validado (con errores) - Sales Check: {salesCheck}. Buscando siguiente domicilio...");
+                        notFoundMunicipio.Add($"SCN: {numScn}, cod_dir: {codDir} - No existe municipio: '{delMunicipio}'");
+                        //System.Console.WriteLine($"[VALIDAR DOMICILIOS WMS] Domicilio validado (con errores) - SCN: {numScn}, cod_dir: {codDir}. Buscando siguiente domicilio...");
                         continue;
                     }
                     domicilio["cve_mun"] = codigosMunicipio["cve_mun"];
@@ -452,7 +438,7 @@ namespace BL.CartaPorteLga
                 }
                 else
                 {
-                    notFoundEstado.Add($"{salesCheck} - No existe estado: '{edoEntFed}'");
+                    notFoundEstado.Add($"SCN: {numScn}, cod_dir: {codDir} - No existe estado: '{edoEntFed}'");
                 }
 
                 if (!string.IsNullOrEmpty(colPoblacion))
@@ -460,26 +446,25 @@ namespace BL.CartaPorteLga
                     var codigoColonia = await CartaPorteBase.CartaPorteBase.GetCodigoColonia(colPoblacion, codPostal, mode);
                     if (codigoColonia == null)
                     {
-                        notFoundColonia.Add($"{salesCheck} - No existe colonia: '{colPoblacion}'");
-                        //System.Console.WriteLine($"[VALIDAR DOMICILIOS LGA] Domicilio validado (con errores) - Sales Check: {salesCheck}. Buscando siguiente domicilio...");
+                        notFoundColonia.Add($"SCN: {numScn}, cod_dir: {codDir} - No existe colonia: '{colPoblacion}'");
+                        //System.Console.WriteLine($"[VALIDAR DOMICILIOS WMS] Domicilio validado (con errores) - SCN: {numScn}, cod_dir: {codDir}. Buscando siguiente domicilio...");
                         continue;
                     }
                     domicilio["cve_col"] = codigoColonia["cve_col"];
                     domicilio["cod_postal_cat"] = codPostal;
                 }
 
-                if (string.IsNullOrWhiteSpace(numIntExt))
+                // Validar número exterior (campo separado en cli_direccion)
+                if (string.IsNullOrWhiteSpace(numExt))
                 {
-                    notFoundNumExt.Add($"{salesCheck} - Sin numero exterior");
+                    notFoundNumExt.Add($"SCN: {numScn}, cod_dir: {codDir} - Sin numero exterior");
                 }
-                else if (numIntExt.Length <= 40 || 
-                    !numIntExt.Substring(30, Math.Min(10, numIntExt.Length - 30)).Any(c => char.IsLetterOrDigit(c)) || 
-                    !numIntExt.Substring(40, Math.Min(10, numIntExt.Length - 40)).Any(c => char.IsLetterOrDigit(c)))
+                else if (!numExt.Trim().Any(c => char.IsLetterOrDigit(c)))
                 {
-                    notFoundNumExt.Add($"{salesCheck} - Numero exterior no válido");
+                    notFoundNumExt.Add($"SCN: {numScn}, cod_dir: {codDir} - Numero exterior no válido");
                 }
 
-                //System.Console.WriteLine($"[VALIDAR DOMICILIOS LGA] Domicilio validado - Sales Check: {salesCheck}. Buscando siguiente domicilio...");
+                //System.Console.WriteLine($"[VALIDAR DOMICILIOS WMS] Domicilio validado - SCN: {numScn}, cod_dir: {codDir}. Buscando siguiente domicilio...");
             }
 
             var allErrors = new List<string>();
@@ -499,64 +484,83 @@ namespace BL.CartaPorteLga
             return result;
         }
 
-        // Métodos auxiliares de consulta (específicos de LGA)
+        // Métodos auxiliares de consulta (específicos de WMS)
 
-        private static async Task<List<Dictionary<string, object>>> GetSkusByFolioOrderedByParada(string folio, string mode)
+        private static async Task<List<Dictionary<string, object>>> GetSkusByCarSalOrderedByParada(string carSal, string mode)
         {
             var skus = new List<Dictionary<string, object>>();
+            //System.Console.WriteLine($"[GET SKUs BY CAR_SAL WMS] Buscando SKUs tangibles para car_sal: {carSal}");
             
-            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringLga(mode)))
+            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGnx(mode)))
             {
                 await connection.OpenAsync();
                 
+                // Query usando ora_ruta, edc_cab, edc_det, arti
+                // Filtrar artículos tangibles: cod_fam2 NOT IN (192,187)
                 string query = @"
-                    SELECT O.no_parada, D.sales_check, D.sku, E.no_transf
-                      FROM lgahventa P, lgaent E, lgadventa D, lgaetiqeta U, lgaparada O
-                     WHERE P.cod_empresa = E.cod_empresa
-                       AND P.cd_id       = E.cd_id
-                       AND P.no_transf   = E.no_transf
-                       AND P.cod_empresa = D.cod_empresa
-                       AND P.cd_id       = D.cd_id
-                       AND P.sales_check = D.sales_check
-                       AND P.cod_empresa = U.cod_empresa
-                       AND P.cd_id       = U.cd_id
-                       AND D.no_etiqueta = U.no_etiqueta
-                       AND P.cod_empresa = O.cod_empresa
-                       AND P.cd_id       = O.cd_id
-                       AND P.sales_check = O.sales_check
-                       AND P.no_transf   = E.no_transf
-                       AND U.st_etiqueta = 7
-                       AND P.cod_empresa = 1
-                       AND P.cd_id       = 870
-                       AND U.no_conoc = ?
-                     ORDER BY O.no_parada ASC
+                    SELECT DISTINCT
+                        R.num_scn,
+                        D.int_art
+                    FROM ora_ruta R
+                    JOIN edc_cab C 
+                        ON R.num_scn = C.num_scn
+                    JOIN edc_det D 
+                        ON C.cod_emp = D.cod_emp
+                        AND C.cod_pto = D.cod_pto
+                        AND C.num_edc = D.num_edc
+                    JOIN arti A 
+                        ON D.cod_emp = A.cod_emp
+                        AND D.int_art = A.int_art
+                    WHERE R.car_sal = ?
+                        AND A.cod_fam2 NOT IN (192, 187)
+                        AND C.cod_emp = 1
+                    ORDER BY R.num_scn ASC
                 ";
 
                 using (var command = new OdbcCommand(query, connection))
                 {
-                    command.Parameters.Add(new OdbcParameter("@folio", folio));
+                    command.Parameters.Add(new OdbcParameter("@car_sal", carSal));
                     
                     using (var reader = await command.ExecuteReaderAsync())
                     {
+                        var scnToParada = new Dictionary<string, int>();
+                        int paradaCounter = 1;
+                        
                         while (await reader.ReadAsync())
                         {
-                            var noParada = GetSafeValue(reader, 0, "no_parada", "GetSkusByFolioOrderedByParada");
-                            var salesCheck = GetSafeValue(reader, 1, "sales_check", "GetSkusByFolioOrderedByParada");
-                            var sku = GetSafeValue(reader, 2, "sku", "GetSkusByFolioOrderedByParada");
-                            var noTransf = GetSafeValue(reader, 3, "no_transf", "GetSkusByFolioOrderedByParada");
+                            var numScn = GetSafeValue(reader, 0, "num_scn", "GetSkusByCarSalOrderedByParada")?.ToString();
+                            var intArt = GetSafeValue(reader, 1, "int_art", "GetSkusByCarSalOrderedByParada")?.ToString();
+                            
+                            // Agrupar por SCN (cada SCN es una parada)
+                            if (string.IsNullOrEmpty(numScn))
+                            {
+                                continue;
+                            }
+                            
+                            int noParada;
+                            if (!scnToParada.ContainsKey(numScn))
+                            {
+                                noParada = paradaCounter;
+                                scnToParada[numScn] = paradaCounter;
+                                paradaCounter++;
+                            }
+                            else
+                            {
+                                noParada = scnToParada[numScn];
+                            }
                             
                             skus.Add(new Dictionary<string, object>
                             {
                                 ["no_parada"] = noParada,
-                                ["sales_check"] = salesCheck,
-                                ["sku"] = sku,
-                                ["no_transf"] = noTransf
+                                ["num_scn"] = numScn,
+                                ["int_art"] = intArt
                             });
                         }
                     }
                 }
             }
             
+            //System.Console.WriteLine($"[GET SKUs BY CAR_SAL WMS] SKUs encontrados: {skus.Count}, Agrupados en {skus.GroupBy(s => s["no_parada"]).Count()} paradas");
             return skus;
         }
 
@@ -567,47 +571,54 @@ namespace BL.CartaPorteLga
                 return null;
             }
             
-            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringLga(mode)))
+            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGnx(mode)))
             {
                 await connection.OpenAsync();
                 
+                // Query usando arti directamente desde gnx
+                // arti.char_5 es el código fiscal que se insertará en int_tim24
                 string query = @"
-                    SELECT L.sku,
-                        K.des_codfis,
+                    SELECT 
+                        A.int_art,
+                        A.des_art,
                         Y.pes_art,
-                        K.cve_codfis
-                    FROM lgacat_sku L
-                    JOIN gen@gnx_prod_tcp:arti U 
-                        ON L.cod_empresa = U.cod_emp
-                    AND L.cod_interno = U.int_art
-                    JOIN dbmdw@gnx_mdw:cat_codfis K 
-                        ON U.char_5 = K.cve_codfis
-                    LEFT OUTER JOIN gen@gnx_prod_tcp:arti_vol Y
-                        ON L.cod_empresa = Y.cod_emp
-                    AND L.cod_interno = Y.int_art
-                    WHERE L.cod_empresa = 1
-                    AND L.sku = ?
+                        A.char_5 as cve_codfis
+                    FROM arti A
+                    LEFT OUTER JOIN arti_vol Y
+                        ON A.cod_emp = Y.cod_emp
+                        AND A.int_art = Y.int_art
+                    WHERE A.cod_emp = 1
+                        AND A.int_art = ?
                 ";
 
                 using (var command = new OdbcCommand(query, connection))
                 {
-                    command.Parameters.Add(new OdbcParameter("@sku", sku));
+                    command.Parameters.Add(new OdbcParameter("@int_art", sku));
                     
                     using (var reader = await command.ExecuteReaderAsync())
                     {
                         if (await reader.ReadAsync())
                         {
-                            var skuValue = GetSafeValue(reader, 0, "sku", "GetCodigosFiscalesPorSku")?.ToString();
-                            var desCodfis = GetSafeValue(reader, 1, "des_codfis", "GetCodigosFiscalesPorSku")?.ToString()?.Trim();
+                            var intArt = GetSafeValue(reader, 0, "int_art", "GetCodigosFiscalesPorSku")?.ToString();
+                            var desArt = GetSafeValue(reader, 1, "des_art", "GetCodigosFiscalesPorSku")?.ToString()?.Trim();
                             var pesArt = GetSafeValue(reader, 2, "pes_art", "GetCodigosFiscalesPorSku");
                             var cveCodfis = GetSafeValue(reader, 3, "cve_codfis", "GetCodigosFiscalesPorSku")?.ToString();
                             
+                            // Usar descripción del artículo
+                            var desCodfis = string.IsNullOrEmpty(desArt) ? "Artículo" : desArt;
+                            
+                            // Si no hay peso, usar 0
+                            if (pesArt == null)
+                            {
+                                pesArt = 0.0m;
+                            }
+                            
                             return new Dictionary<string, object>
                             {
-                                ["sku"] = skuValue,
+                                ["sku"] = intArt,
                                 ["des_codfis"] = desCodfis,
                                 ["pes_art"] = pesArt,
-                                ["cve_codfis"] = cveCodfis
+                                ["cve_codfis"] = cveCodfis ?? ""
                             };
                         }
                     }
@@ -617,118 +628,93 @@ namespace BL.CartaPorteLga
             return null;
         }
 
-        private static async Task<List<Dictionary<string, object>>> GetDomiciliosPorFolio(string folio, string mode)
+        private static async Task<List<Dictionary<string, object>>> GetDomiciliosPorCarSal(string carSal, string mode)
         {
             var domicilios = new List<Dictionary<string, object>>();
+            //System.Console.WriteLine($"[GET DOMICILIOS BY CAR_SAL WMS] Buscando domicilios para car_sal: {carSal}");
             
-            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringLga(mode)))
+            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGnx(mode)))
             {
                 await connection.OpenAsync();
                 
+                // Query usando ora_ruta, edc_cab, cli_direccion para obtener domicilios
+                // edc_cab.cod_dir se usa para buscar en cli_direccion
+                // num_ext y num_int son campos separados en cli_direccion
                 string query = @"
-                    SELECT D.sales_check, D.sku, E.direc_cte, E.direc_cte1, E.referencia,
-                           E.referencia1, E.col_poblacion, E.del_municipio, E.ciudad, E.edo_entfed,
-                           E.cod_postal
-                      FROM lgahventa P, lgaent E, lgadventa D, lgaetiqeta U, lgaparada O
-                     WHERE P.cod_empresa = E.cod_empresa
-                       AND P.cd_id       = E.cd_id
-                       AND P.no_transf   = E.no_transf
-                       AND P.cod_empresa = D.cod_empresa
-                       AND P.cd_id       = D.cd_id
-                       AND P.sales_check = D.sales_check
-                       AND P.cod_empresa = U.cod_empresa
-                       AND P.cd_id       = U.cd_id
-                       AND D.no_etiqueta = U.no_etiqueta
-                       AND P.cod_empresa = O.cod_empresa
-                       AND P.cd_id       = O.cd_id
-                       AND P.sales_check = O.sales_check
-                       AND P.no_transf   = E.no_transf
-                       AND U.st_etiqueta = 7
-                       AND P.cod_empresa = 1
-                       AND P.cd_id       = 870
-                       AND U.no_conoc = ?
+                    SELECT DISTINCT
+                        R.num_scn,
+                        C.cod_cli,
+                        C.cod_dir,
+                        D.dir_cli as direc_cte,
+                        D.num_ext,
+                        D.num_int,
+                        D.ent_calles as referencia,
+                        D.ent_calles2 as referencia1,
+                        D.col_cli as col_poblacion,
+                        D.pob_cli as del_municipio,
+                        D.pob_cli as ciudad,
+                        D.pro_cli as edo_entfed,
+                        D.cp_cli as cod_postal
+                    FROM ora_ruta R
+                    JOIN edc_cab C 
+                        ON R.num_scn = C.num_scn
+                    JOIN cli_direccion D
+                        ON C.cod_dir = D.cod_dir
+                    WHERE R.car_sal = ?
+                        AND C.cod_emp = 1
                 ";
 
                 using (var command = new OdbcCommand(query, connection))
                 {
-                    command.Parameters.Add(new OdbcParameter("@folio", folio));
+                    command.Parameters.Add(new OdbcParameter("@car_sal", carSal));
                     
                     using (var reader = await command.ExecuteReaderAsync())
                     {
                         while (await reader.ReadAsync())
                         {
-                            var salesCheck = GetSafeValue(reader, 0, "sales_check", "GetDomiciliosPorFolio")?.ToString();
+                            var numScn = GetSafeValue(reader, 0, "num_scn", "GetDomiciliosPorCarSal")?.ToString();
                             
                             domicilios.Add(new Dictionary<string, object>
                             {
-                                ["sales_check"] = salesCheck,
-                                ["sku"] = GetSafeValue(reader, 1, "sku", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["direc_cte"] = GetSafeValue(reader, 2, "direc_cte", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["direc_cte1"] = GetSafeValue(reader, 3, "direc_cte1", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["referencia"] = GetSafeValue(reader, 4, "referencia", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["referencia1"] = GetSafeValue(reader, 5, "referencia1", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["col_poblacion"] = GetSafeValue(reader, 6, "col_poblacion", "GetDomiciliosPorFolio", salesCheck)?.ToString()?.Trim(),
-                                ["del_municipio"] = GetSafeValue(reader, 7, "del_municipio", "GetDomiciliosPorFolio", salesCheck)?.ToString()?.Trim(),
-                                ["ciudad"] = GetSafeValue(reader, 8, "ciudad", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["edo_entfed"] = GetSafeValue(reader, 9, "edo_entfed", "GetDomiciliosPorFolio", salesCheck)?.ToString(),
-                                ["cod_postal"] = GetSafeValue(reader, 10, "cod_postal", "GetDomiciliosPorFolio", salesCheck)?.ToString()
+                                ["num_scn"] = numScn,
+                                ["cod_cli"] = GetSafeValue(reader, 1, "cod_cli", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["cod_dir"] = GetSafeValue(reader, 2, "cod_dir", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["direc_cte"] = GetSafeValue(reader, 3, "direc_cte", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["num_ext"] = GetSafeValue(reader, 4, "num_ext", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["num_int"] = GetSafeValue(reader, 5, "num_int", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["referencia"] = GetSafeValue(reader, 6, "referencia", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["referencia1"] = GetSafeValue(reader, 7, "referencia1", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["col_poblacion"] = GetSafeValue(reader, 8, "col_poblacion", "GetDomiciliosPorCarSal", numScn)?.ToString()?.Trim(),
+                                ["del_municipio"] = GetSafeValue(reader, 9, "del_municipio", "GetDomiciliosPorCarSal", numScn)?.ToString()?.Trim(),
+                                ["ciudad"] = GetSafeValue(reader, 10, "ciudad", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["edo_entfed"] = GetSafeValue(reader, 11, "edo_entfed", "GetDomiciliosPorCarSal", numScn)?.ToString(),
+                                ["cod_postal"] = GetSafeValue(reader, 12, "cod_postal", "GetDomiciliosPorCarSal", numScn)?.ToString()
                             });
                         }
                     }
                 }
             }
             
+            //System.Console.WriteLine($"[GET DOMICILIOS BY CAR_SAL WMS] Domicilios encontrados: {domicilios.Count}");
             return domicilios;
         }
 
-
-        // Métodos de inserción (específicos de LGA)
-
-        private static (string numInt, string numExt) ParseDirecCte1(string direcCte1)
-        {
-            if (string.IsNullOrEmpty(direcCte1))
-            {
-                return (" ", " ");
-            }
-
-            string numbersPart;
-            if (direcCte1.Length > 30)
-            {
-                numbersPart = direcCte1.Substring(30).Trim();
-            }
-            else
-            {
-                numbersPart = direcCte1.Trim();
-            }
-            
-            var parts = numbersPart.Split(new char[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
-            
-            if (parts.Length >= 2)
-            {
-                return (parts[0], parts[1]);
-            }
-            else if (parts.Length == 1)
-            {
-                return (" ", parts[0]);
-            }
-            
-            return (" ", " ");
-        }
-
+        // Métodos de inserción (específicos de WMS)
 
         private static async Task InsertarDomicilio(string idDes, Dictionary<string, object> domicilioInfo, 
             string idUni, int codEmp, string mode)
         {
             var direcCte = domicilioInfo["direc_cte"]?.ToString();
-            var direcCte1 = domicilioInfo["direc_cte1"]?.ToString();
+            var numExt = domicilioInfo["num_ext"]?.ToString();
+            var numInt = domicilioInfo["num_int"]?.ToString();
             var referencia = domicilioInfo["referencia"]?.ToString();
             var cveCol = domicilioInfo["cve_col"]?.ToString();
             var cveMun = domicilioInfo["cve_mun"]?.ToString();
             var cveEst = domicilioInfo["cve_est"]?.ToString();
             var cveLoca = domicilioInfo["cve_loca"]?.ToString();
             var codPostalCat = domicilioInfo["cod_postal_cat"]?.ToString();
-            
-            var (numInt, numExt) = ParseDirecCte1(direcCte1);
+            var numScn = domicilioInfo["num_scn"]?.ToString();
+            //System.Console.WriteLine($"[INSERTAR DOMICILIO WMS] ID={idUni}, Destino={idDes}, SCN={numScn}, Calle={direcCte}, NumExt={numExt}, CP={codPostalCat}");
             
             using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGnx(mode)))
             {
@@ -743,8 +729,8 @@ namespace BL.CartaPorteLga
                 {
                     command.Parameters.Add(new OdbcParameter("@des_ori", idDes.PadRight(8).Substring(0, 8)));
                     command.Parameters.Add(new OdbcParameter("@calle", (direcCte ?? " ").PadRight(150).Substring(0, 150)));
-                    command.Parameters.Add(new OdbcParameter("@num_ext", numExt.PadRight(50).Substring(0, 50)));
-                    command.Parameters.Add(new OdbcParameter("@num_int", numInt.PadRight(50).Substring(0, 50)));
+                    command.Parameters.Add(new OdbcParameter("@num_ext", (numExt ?? " ").PadRight(50).Substring(0, 50)));
+                    command.Parameters.Add(new OdbcParameter("@num_int", (numInt ?? " ").PadRight(50).Substring(0, 50)));
                     command.Parameters.Add(new OdbcParameter("@col", (cveCol ?? " ").PadRight(5).Substring(0, 5)));
                     command.Parameters.Add(new OdbcParameter("@loca", (cveLoca ?? " ").PadRight(2).Substring(0, 2)));
                     command.Parameters.Add(new OdbcParameter("@ref", (referencia ?? " ").PadRight(150).Substring(0, 150)));
@@ -769,7 +755,8 @@ namespace BL.CartaPorteLga
             foreach (var domicilio in domicilios)
             {
                 var direcCte = domicilio["direc_cte"]?.ToString() ?? " ";
-                var direcCte1 = domicilio["direc_cte1"]?.ToString() ?? " ";
+                var numExt = domicilio["num_ext"]?.ToString() ?? " ";
+                var numInt = domicilio["num_int"]?.ToString() ?? " ";
                 var referencia = domicilio["referencia"]?.ToString() ?? " ";
                 var referencia1 = domicilio["referencia1"]?.ToString() ?? " ";
                 var colPoblacion = domicilio["col_poblacion"]?.ToString() ?? " ";
@@ -779,7 +766,7 @@ namespace BL.CartaPorteLga
                 var edoEntfed = domicilio["edo_entfed"]?.ToString() ?? " ";
                 var codPostal = domicilio["cod_postal"]?.ToString() ?? " ";
                 
-                var claveDomicilio = $"{direcCte}|{direcCte1}|{referencia}|{referencia1}|{colPoblacion}|{delMunicipio}|{localidad}|{ciudad}|{edoEntfed}|{codPostal}";
+                var claveDomicilio = $"{direcCte}|{numExt}|{numInt}|{referencia}|{referencia1}|{colPoblacion}|{delMunicipio}|{localidad}|{ciudad}|{edoEntfed}|{codPostal}";
                 
                 if (!domiciliosVistos.Contains(claveDomicilio))
                 {
@@ -793,3 +780,4 @@ namespace BL.CartaPorteLga
 
     }
 }
+

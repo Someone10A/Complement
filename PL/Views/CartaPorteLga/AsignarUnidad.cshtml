@@ -91,7 +91,12 @@
             operarios = [];
             operadoresFiltrados = [];
 
+            // WMS: Usar nuevo endpoint
+            fetch('/api/operadoresWMS')
+            
+            /* LGA: Endpoint original comentado
             fetch('/api/operadoresLga')
+            */
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Error al cargar operadores');
@@ -115,7 +120,12 @@
             camiones = [];
             camionesFiltrados = [];
 
+            // WMS: Usar nuevo endpoint
+            fetch('/api/unidadesWMS')
+            
+            /* LGA: Endpoint original comentado
             fetch('/api/unidadesLga')
+            */
                 .then(response => {
                     if (!response.ok) {
                         throw new Error('Error al cargar unidades');
@@ -244,6 +254,16 @@
                 fechaSalida: fechaSalidaCDTString
             };
 
+            // WMS: Usar nuevo endpoint
+            fetch('/api/enviarCartaWMS', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            
+            /* LGA: Endpoint original comentado
             fetch('/api/enviarCarta', {
                 method: 'POST',
                 headers: {
@@ -251,6 +271,7 @@
                 },
                 body: JSON.stringify(requestData)
             })
+            */
             .then(response => {
                 if (!response.ok) {
                     return response.json().then(err => Promise.reject({ status: response.status, error: err }));

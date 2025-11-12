@@ -335,17 +335,17 @@ namespace BL.Maintenance
                     string url = DL.ApiOracle.GetInfoWMSPro(orderNumber);
                     Uri uri = new Uri(url);
 
-                    System.Console.WriteLine($"[BL] GetOracleWMSInfo - Consultando Oracle WMS para orden: {orderNumber}");
-                    System.Console.WriteLine($"[BL] GetOracleWMSInfo - URL: {url}");
+                    //System.Console.WriteLine($"[BL] GetOracleWMSInfo - Consultando Oracle WMS para orden: {orderNumber}");
+                    //System.Console.WriteLine($"[BL] GetOracleWMSInfo - URL: {url}");
 
                     HttpResponseMessage response = client.GetAsync(uri).Result;
 
-                    System.Console.WriteLine($"[BL] GetOracleWMSInfo - Status Code: {(int)response.StatusCode} - {response.StatusCode}");
+                    //System.Console.WriteLine($"[BL] GetOracleWMSInfo - Status Code: {(int)response.StatusCode} - {response.StatusCode}");
 
                     if (response.IsSuccessStatusCode)
                     {
                         string xmlString = response.Content.ReadAsStringAsync().Result;
-                        System.Console.WriteLine($"[BL] GetOracleWMSInfo - Respuesta XML recibida (longitud: {xmlString.Length})");
+                        //System.Console.WriteLine($"[BL] GetOracleWMSInfo - Respuesta XML recibida (longitud: {xmlString.Length})");
                         
                         // Parsear XML para extraer información
                         XmlDocument xmlDoc = new XmlDocument();
@@ -372,7 +372,7 @@ namespace BL.Maintenance
                                 if (int.TryParse(idEstatusNode.InnerText, out int idEstatus))
                                 {
                                     apiRequest.IdEstatus = idEstatus;
-                                    System.Console.WriteLine($"[BL] GetOracleWMSInfo - IdEstatus extraído: {idEstatus}");
+                                    //System.Console.WriteLine($"[BL] GetOracleWMSInfo - IdEstatus extraído: {idEstatus}");
                                 }
                             }
 
@@ -396,7 +396,7 @@ namespace BL.Maintenance
                     }
                     else
                     {
-                        System.Console.WriteLine($"[BL] GetOracleWMSInfo - Error al hacer la petición: {(int)response.StatusCode} - {response.ReasonPhrase}");
+                        //System.Console.WriteLine($"[BL] GetOracleWMSInfo - Error al hacer la petición: {(int)response.StatusCode} - {response.ReasonPhrase}");
                         
                         // Si es 404, devolver objeto con mensaje "No encontrado"
                         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -414,7 +414,7 @@ namespace BL.Maintenance
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"[BL] GetOracleWMSInfo - Error al obtener información de Oracle WMS: {ex.Message}");
+                //System.Console.WriteLine($"[BL] GetOracleWMSInfo - Error al obtener información de Oracle WMS: {ex.Message}");
             }
             return null;
         }
@@ -479,7 +479,7 @@ namespace BL.Maintenance
                         using (OdbcDataReader reader = cmd.ExecuteReader())
                         {
                             bool exists = reader.Read();
-                            System.Console.WriteLine($"\n[BL] CheckOraMantenimiento - SCN {numScn} exists: {exists}\n");
+                            //System.Console.WriteLine($"\n[BL] CheckOraMantenimiento - SCN {numScn} exists: {exists}\n");
                             
                             result.Correct = true;
                             result.Object = exists;
@@ -492,7 +492,7 @@ namespace BL.Maintenance
                 result.Correct = false;
                 result.Message = $@"Error al verificar ora_mantenimiento: {ex.Message}";
                 result.Ex = ex;
-                System.Console.WriteLine($"[BL] CheckOraMantenimiento - Error: {ex.Message}");
+                //System.Console.WriteLine($"[BL] CheckOraMantenimiento - Error: {ex.Message}");
             }
             return result;
         }
@@ -516,7 +516,7 @@ namespace BL.Maintenance
                 
                 // Determinar escenario basado en cambios reales
                 int scenario = DetermineScenario(confirmedInfo, originalInfo);
-                System.Console.WriteLine($"[BL] UpdateScnInfo - Escenario determinado: {scenario} para SCN: {confirmedInfo.NumScn}");
+                //System.Console.WriteLine($"[BL] UpdateScnInfo - Escenario determinado: {scenario} para SCN: {confirmedInfo.NumScn}");
                 
                 using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {
@@ -558,7 +558,7 @@ namespace BL.Maintenance
                         }
 
                         transaction.Commit();
-                        System.Console.WriteLine($"[BL] UpdateScnInfo - Transacción confirmada exitosamente para SCN: {confirmedInfo.NumScn}");
+                        //System.Console.WriteLine($"[BL] UpdateScnInfo - Transacción confirmada exitosamente para SCN: {confirmedInfo.NumScn}");
 
                         // Ejecutar actualizaciones LGA (fuera de transacción según requisitos)
                         ExecuteLgaUpdates(confirmedInfo, connection, scenario, ordRelWithoutLastThree);
@@ -571,7 +571,7 @@ namespace BL.Maintenance
                         if (transaction != null)
                         {
                             transaction.Rollback();
-                            System.Console.WriteLine($"[BL] UpdateScnInfo - Transaction rolled back for SCN: {confirmedInfo.NumScn}");
+                            //System.Console.WriteLine($"[BL] UpdateScnInfo - Transaction rolled back for SCN: {confirmedInfo.NumScn}");
                         }
                         throw;
                     }
@@ -582,7 +582,7 @@ namespace BL.Maintenance
                 result.Correct = false;
                 result.Message = $@"Error al actualizar la información del SCN {confirmedInfo.NumScn}: {ex.Message}";
                 result.Ex = ex;
-                System.Console.WriteLine($"[BL] UpdateScnInfo - Error: {ex.Message}");
+                //System.Console.WriteLine($"[BL] UpdateScnInfo - Error: {ex.Message}");
             }
             return result;
         }
@@ -592,7 +592,7 @@ namespace BL.Maintenance
             bool hasDateChange = HasDateChange(confirmedInfo, originalInfo);
             bool hasAddressChange = HasAddressChanges(confirmedInfo, originalInfo);
             
-            System.Console.WriteLine($"[BL] DetermineScenario - Date change: {hasDateChange}, Address change: {hasAddressChange}");
+            //System.Console.WriteLine($"[BL] DetermineScenario - Date change: {hasDateChange}, Address change: {hasAddressChange}");
             
             // Escenario 1: posfechado (solo cambio de fecha)
             if (hasDateChange && !hasAddressChange)
@@ -684,11 +684,11 @@ namespace BL.Maintenance
 
         private static void ExecuteScenario1(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] ExecuteScenario1 - Actualizando edc_cab para SCN: {confirmedInfo.NumScn}");
+            //System.Console.WriteLine($"[BL] ExecuteScenario1 - Actualizando edc_cab para SCN: {confirmedInfo.NumScn}");
             
             string fechaEnt = !string.IsNullOrEmpty(confirmedInfo.FecEnt) ? confirmedInfo.FecEnt : "30/03/2000";
             
-            System.Console.WriteLine($"[BL] ExecuteScenario1 - Actualizando fec_ent a: {fechaEnt}");
+            //System.Console.WriteLine($"[BL] ExecuteScenario1 - Actualizando fec_ent a: {fechaEnt}");
             
             string updateEdcCab = $@"UPDATE edc_cab 
                                     SET fec_ent = '{fechaEnt}'
@@ -698,7 +698,7 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateEdcCab, connection, transaction))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] ExecuteScenario1 - edc_cab rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] ExecuteScenario1 - edc_cab rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
@@ -709,7 +709,7 @@ namespace BL.Maintenance
 
         private static void ExecuteScenario2(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] ExecuteScenario2 - Actualizando cli_direccion, cli_coord, edc_cab para SCN: {confirmedInfo.NumScn}");
+            //System.Console.WriteLine($"[BL] ExecuteScenario2 - Actualizando cli_direccion, cli_coord, edc_cab para SCN: {confirmedInfo.NumScn}");
             
             // Actualizar cli_coord
             UpdateCliCoord(confirmedInfo, connection, transaction);
@@ -719,7 +719,7 @@ namespace BL.Maintenance
             
             string fechaEnt = !string.IsNullOrEmpty(confirmedInfo.FecEnt) ? confirmedInfo.FecEnt : "30/03/2000";
             
-            System.Console.WriteLine($"[BL] ExecuteScenario2 - Actualizando fec_ent a: {fechaEnt}");
+            //System.Console.WriteLine($"[BL] ExecuteScenario2 - Actualizando fec_ent a: {fechaEnt}");
             
             string updateEdcCab = $@"UPDATE edc_cab 
                                     SET fec_ent = '{fechaEnt}'
@@ -729,7 +729,7 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateEdcCab, connection, transaction))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] ExecuteScenario2 - edc_cab rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] ExecuteScenario2 - edc_cab rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
@@ -747,7 +747,7 @@ namespace BL.Maintenance
 
         private static void UpdateCliCoord(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] UpdateCliCoord - Actualizando cli_coord: {confirmedInfo.CodCli}");
+            //System.Console.WriteLine($"[BL] UpdateCliCoord - Actualizando cli_coord: {confirmedInfo.CodCli}");
             
             string checkExists = $@"SELECT COUNT(*) FROM cli_coord 
                                    WHERE cod_emp = 1 
@@ -770,7 +770,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateCliCoord - Updated existing record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateCliCoord - Updated existing record, rows affected: {rowsAffected}");
                     
                     if (rowsAffected == 0)
                     {
@@ -786,7 +786,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(insertQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateCliCoord - Inserted new record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateCliCoord - Inserted new record, rows affected: {rowsAffected}");
                     
                     if (rowsAffected == 0)
                     {
@@ -798,7 +798,7 @@ namespace BL.Maintenance
 
         private static void UpdateCliDireccion(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] UpdateCliDireccion - Actualizando cli_direccion: {confirmedInfo.CodDir}");
+            //System.Console.WriteLine($"[BL] UpdateCliDireccion - Actualizando cli_direccion: {confirmedInfo.CodDir}");
             
             // Obtener cve_est basado en el código postal
             string cveEst = confirmedInfo.Estado; // Valor por defecto si no se encuentra
@@ -816,11 +816,11 @@ namespace BL.Maintenance
                     if (result != null && result != DBNull.Value)
                     {
                         cveEst = result.ToString();
-                        System.Console.WriteLine($"[BL] UpdateCliDireccion - Obtenido cve_est: {cveEst} para código postal: {confirmedInfo.CodPos}");
+                        //System.Console.WriteLine($"[BL] UpdateCliDireccion - Obtenido cve_est: {cveEst} para código postal: {confirmedInfo.CodPos}");
                     }
                     else
                     {
-                        System.Console.WriteLine($"[BL] UpdateCliDireccion - No se encontró cve_est para código postal: {confirmedInfo.CodPos}, usando valor por defecto: {cveEst}");
+                        //System.Console.WriteLine($"[BL] UpdateCliDireccion - No se encontró cve_est para código postal: {confirmedInfo.CodPos}, usando valor por defecto: {cveEst}");
                     }
                 }
             }
@@ -836,7 +836,7 @@ namespace BL.Maintenance
                                                WHERE cve_est = '{cveEst}'
                                                AND UPPER(desc) LIKE '%{municipioSearchUpper}%'";
 
-                System.Console.WriteLine($"[BL] UpdateCliDireccion - Parámetros: cve_est={cveEst}, municipioSearch={municipioSearch}");
+                //System.Console.WriteLine($"[BL] UpdateCliDireccion - Parámetros: cve_est={cveEst}, municipioSearch={municipioSearch}");
 
                 using (OdbcCommand cmd = new OdbcCommand(getMunicipioQuery, connection, transaction))
                 {
@@ -874,11 +874,11 @@ namespace BL.Maintenance
                         if (bestMatch != null)
                         {
                             municipioValue = bestMatch;
-                            System.Console.WriteLine($"[BL] UpdateCliDireccion - Obtenido municipio: {municipioValue} para cve_est: {cveEst} y municipio: {confirmedInfo.Municipio} (score: {bestMatchScore})");
+                            //System.Console.WriteLine($"[BL] UpdateCliDireccion - Obtenido municipio: {municipioValue} para cve_est: {cveEst} y municipio: {confirmedInfo.Municipio} (score: {bestMatchScore})");
                         }
                         else
                         {
-                            System.Console.WriteLine($"[BL] UpdateCliDireccion - No se encontró municipio en cat_mun para cve_est: {cveEst} y municipio: '{confirmedInfo.Municipio}', usando valor por defecto: {municipioValue}");
+                            //System.Console.WriteLine($"[BL] UpdateCliDireccion - No se encontró municipio en cat_mun para cve_est: {cveEst} y municipio: '{confirmedInfo.Municipio}', usando valor por defecto: {municipioValue}");
                         }
                     }
                 }
@@ -913,7 +913,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateCliDireccion - Updated existing record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateCliDireccion - Updated existing record, rows affected: {rowsAffected}");
                     
                     if (rowsAffected == 0)
                     {
@@ -929,7 +929,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(insertQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateCliDireccion - Inserted new record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateCliDireccion - Inserted new record, rows affected: {rowsAffected}");
                     
                     if (rowsAffected == 0)
                     {
@@ -941,7 +941,7 @@ namespace BL.Maintenance
 
         private static void UpdateOraMantenimiento(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] UpdateOraMantenimiento - Actualizando/Insertando estatus a 2 para SCN: {confirmedInfo.NumScn}");
+            //System.Console.WriteLine($"[BL] UpdateOraMantenimiento - Actualizando/Insertando estatus a 2 para SCN: {confirmedInfo.NumScn}");
             
             string checkExists = $@"SELECT COUNT(*) FROM ora_mantenimiento 
                                    WHERE cod_emp = 1 
@@ -965,7 +965,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateOraMantenimiento - Updated existing record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateOraMantenimiento - Updated existing record, rows affected: {rowsAffected}");
                     
                     if (rowsAffected == 0)
                     {
@@ -981,7 +981,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(insertQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateOraMantenimiento - Inserted new record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateOraMantenimiento - Inserted new record, rows affected: {rowsAffected}");
                     
                     if (rowsAffected == 0)
                     {
@@ -993,7 +993,7 @@ namespace BL.Maintenance
 
         private static void UpdateOraIntegraEnvio(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] UpdateOraIntegraEnvio - Actualizando estatus a null para SCN: {confirmedInfo.NumScn}");
+            //System.Console.WriteLine($"[BL] UpdateOraIntegraEnvio - Actualizando estatus a null para SCN: {confirmedInfo.NumScn}");
             
             string updateQuery = $@"UPDATE ora_integra_envio 
                                    SET status = NULL
@@ -1002,18 +1002,18 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection, transaction))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] UpdateOraIntegraEnvio - rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] UpdateOraIntegraEnvio - rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
-                    System.Console.WriteLine($"[Warning] UpdateOraIntegraEnvio - No rows affected");
+                    //System.Console.WriteLine($"[Warning] UpdateOraIntegraEnvio - No rows affected");
                 }
             }
         }
 
         private static void UpdateOraMantenimientoEstatus(ML.Maintenance.InfoByScn originalInfo, OdbcConnection connection, OdbcTransaction transaction)
         {
-            System.Console.WriteLine($"[BL] UpdateOraMantenimientoEstatus - Actualizando estatus a 2 para cod_pto={originalInfo.CodPto}, num_edc={originalInfo.NumEdc}");
+            //System.Console.WriteLine($"[BL] UpdateOraMantenimientoEstatus - Actualizando estatus a 2 para cod_pto={originalInfo.CodPto}, num_edc={originalInfo.NumEdc}");
             
             string updateQuery = $@"UPDATE ora_mantenimiento 
                                    SET estatus = 2 
@@ -1023,7 +1023,7 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection, transaction))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] UpdateOraMantenimientoEstatus - rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] UpdateOraMantenimientoEstatus - rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
@@ -1034,7 +1034,7 @@ namespace BL.Maintenance
 
         private static void CheckAndUpdateOraConfirmacion(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, ML.Maintenance.InfoByScn originalInfo, OdbcConnection connection, OdbcTransaction transaction, string usuId)
         {
-            System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Verificando registro para num_scn={originalInfo.NumScn}");
+            //System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Verificando registro para num_scn={originalInfo.NumScn}");
             
             string checkQuery = $@"SELECT * FROM ora_confirmacion WHERE num_scn = '{originalInfo.NumScn}'";
             bool exists = false;
@@ -1043,7 +1043,7 @@ namespace BL.Maintenance
                 using (OdbcDataReader reader = cmd.ExecuteReader())
                 {
                     exists = reader.Read();
-                    System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Record exists: {exists}");
+                    //System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Record exists: {exists}");
                 }
             }
 
@@ -1065,22 +1065,22 @@ namespace BL.Maintenance
                                            fec_con = CURRENT YEAR TO MINUTE
                                        WHERE num_scn = '{originalInfo.NumScn}'";
                 
-                System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Update Parameters: estatus=100, fec_con=CURRENT YEAR TO MINUTE, num_scn={originalInfo.NumScn}");
+                //System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Update Parameters: estatus=100, fec_con=CURRENT YEAR TO MINUTE, num_scn={originalInfo.NumScn}");
                 using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection, transaction))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Update rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Update rows affected: {rowsAffected}");
                 }
             }
 
             string insertQuery = $@"INSERT INTO ora_confirmacion (cod_emp, pto_alm, num_scn, estatus, fec_ent, fec_con, usu_con, tip_ent)
                                    VALUES (1, {originalInfo.PtoAlm ?? "0"}, '{originalInfo.NumScn}', 0, '{fecEnt}', CURRENT YEAR TO MINUTE, {usuId ?? "0"}, '{tipEnt}')";
 
-            System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Insert Parameters: cod_emp=1, pto_alm={originalInfo.PtoAlm}, num_scn={originalInfo.NumScn}, estatus=0, fec_ent={fecEnt}, fec_con=CURRENT YEAR TO MINUTE, usu_con={usuId}, tip_ent={tipEnt}");
+            //System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Insert Parameters: cod_emp=1, pto_alm={originalInfo.PtoAlm}, num_scn={originalInfo.NumScn}, estatus=0, fec_ent={fecEnt}, fec_con=CURRENT YEAR TO MINUTE, usu_con={usuId}, tip_ent={tipEnt}");
             using (OdbcCommand cmd = new OdbcCommand(insertQuery, connection, transaction))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Insert rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] CheckAndUpdateOraConfirmacion - Insert rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
@@ -1091,7 +1091,7 @@ namespace BL.Maintenance
 
         private static void ExecuteLgaUpdates(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, int scenario, string ordRelWithoutLastThree)
         {
-            System.Console.WriteLine($"[BL] ExecuteLgaUpdates - Ejecutando actualizaciones LGA para escenario: {scenario}");
+            //System.Console.WriteLine($"[BL] ExecuteLgaUpdates - Ejecutando actualizaciones LGA para escenario: {scenario}");
             
             try
             {
@@ -1107,13 +1107,13 @@ namespace BL.Maintenance
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"[BL] ExecuteLgaUpdates - Error en actualizaciones LGA: {ex.Message}");
+                //System.Console.WriteLine($"[BL] ExecuteLgaUpdates - Error en actualizaciones LGA: {ex.Message}");
             }
         }
 
         private static void UpdateLgaEnt(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, string ordRelWithoutLastThree)
         {
-            System.Console.WriteLine($"[BL] UpdateLgaEnt - Actualizando tabla lgaent");
+            //System.Console.WriteLine($"[BL] UpdateLgaEnt - Actualizando tabla lgaent");
             
             string updateQuery = $@"UPDATE dblga@lga_prod:lgaent 
                                    SET f_entrega = '{confirmedInfo.FecEnt}',
@@ -1132,18 +1132,18 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] UpdateLgaEnt - rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] UpdateLgaEnt - rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
-                    System.Console.WriteLine($"[Warning] UpdateLgaEnt - No rows affected");
+                    //System.Console.WriteLine($"[Warning] UpdateLgaEnt - No rows affected");
                 }
             }
         }
 
         private static void UpdateLgahventa(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, string ordRelWithoutLastThree)
         {
-            System.Console.WriteLine($"[BL] UpdateLgahventa - Actualizando tabla lgahventa");
+            //System.Console.WriteLine($"[BL] UpdateLgahventa - Actualizando tabla lgahventa");
             
             string updateQuery = $@"UPDATE dblga@lga_prod:lgahventa 
                                    SET f_entrega = '{confirmedInfo.FecEnt}',
@@ -1157,18 +1157,18 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] UpdateLgahventa - rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] UpdateLgahventa - rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
-                    System.Console.WriteLine($"[Warning] UpdateLgahventa - No rows affected");
+                    //System.Console.WriteLine($"[Warning] UpdateLgahventa - No rows affected");
                 }
             }
         }
 
         private static void UpdateLgaposfecha(ML.Maintenance.ConfirmedInfoByScn confirmedInfo, OdbcConnection connection, string ordRelWithoutLastThree)
         {
-            System.Console.WriteLine($"[BL] UpdateLgaposfecha - Actualizando tabla lgaposfecha");
+            //System.Console.WriteLine($"[BL] UpdateLgaposfecha - Actualizando tabla lgaposfecha");
             
             string updateQuery = $@"UPDATE dblga@lga_prod:lgaposfecha 
                                    SET f_ent_nueva = '{confirmedInfo.FecEnt}',
@@ -1180,11 +1180,11 @@ namespace BL.Maintenance
             using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection))
             {
                 int rowsAffected = cmd.ExecuteNonQuery();
-                System.Console.WriteLine($"[BL] UpdateLgaposfecha - rows affected: {rowsAffected}");
+                //System.Console.WriteLine($"[BL] UpdateLgaposfecha - rows affected: {rowsAffected}");
                 
                 if (rowsAffected == 0)
                 {
-                    System.Console.WriteLine($"[Warning] UpdateLgaposfecha - No rows affected");
+                    //System.Console.WriteLine($"[Warning] UpdateLgaposfecha - No rows affected");
                 }
             }
         }

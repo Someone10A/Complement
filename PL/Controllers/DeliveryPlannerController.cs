@@ -32,7 +32,7 @@ namespace PL.Controllers
 
             List<ML.DeliveryPlanner.ReadyInfo> readyInfoList = new List<ML.DeliveryPlanner.ReadyInfo>();
 
-            var result = BL.DeliveryPlanner.DeliveryPlanner.GetReadyOrdersPerDate(readyQuery, mode);
+            ML.Result result = BL.DeliveryPlanner.DeliveryPlanner.GetReadyOrdersPerDate(readyQuery, mode);
             if (!result.Correct)
             {
                 return BadRequest($@"{result.Message}");
@@ -51,8 +51,43 @@ namespace PL.Controllers
                 return RedirectToAction("Login", "Login");
             }
 
-            return Ok("Pedidos enviados correctamente.");
+            ML.Result result = BL.DeliveryPlanner.DeliveryPlanner.OrderFreeze(readyInfoList, mode);
+
+            return Json(result);
         }
 
+        [HttpGet]
+        public IActionResult Planning()
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            return View("Planning");
+        }
+
+
+        [HttpPost]
+        public IActionResult GetOrdersPerDate([FromBody] ML.DeliveryPlanner.PlanQuery planQuery)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            List<ML.DeliveryPlanner.PlanInfo> planInfoList = new List<ML.DeliveryPlanner.PlanInfo>();
+
+            ML.Result result = BL.DeliveryPlanner.DeliveryPlanner.GetOrdersPerDate(planQuery, mode);
+            if (!result.Correct)
+            {
+                return BadRequest($@"{result.Message}");
+            }
+            planInfoList = (List<ML.DeliveryPlanner.PlanInfo>)result.Object;
+
+            return Json(planInfoList);
+        }
     }
 }

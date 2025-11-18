@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace DL
@@ -34,6 +35,26 @@ namespace DL
         public static string GetConnectionSAT(string mode) 
         {
             return Environment.GetEnvironmentVariable("CON_CAT");
+        }
+
+        public static string GetConnectionStringSig(string mode) 
+        {
+            if (mode == "PRO")
+            {
+                return GetConSigPro(mode);
+            }
+            else
+            {
+                return GetConSigDev(mode);
+            }
+        }
+        protected static string? GetConSigPro(string mode)
+        {
+            return Environment.GetEnvironmentVariable("CON_SIG_PRO");
+        }
+        protected static string? GetConSigDev(string mode)
+        {
+            return Environment.GetEnvironmentVariable("CON_SIG_PRO");
         }
     }
 }

@@ -85,13 +85,13 @@ namespace BL.Maintenance
 	                                    ELSE
 		                                    I.latitud
 	                                    END AS latitud,
-	                                    CASE WHEN (J.num_scn IS NULL)
+	                                    CASE WHEN (K.num_scn IS NULL)
 	                                    THEN
 		                                    'NO'
 	                                    ELSE
 		                                    'SI'
 	                                    END AS is_rdd,
-	                                    CASE WHEN (J.status IS NULL)
+	                                    CASE WHEN (K.num_scn IS NULL)
 	                                    THEN
 			                                    'NO'
 	                                    ELSE
@@ -102,7 +102,7 @@ namespace BL.Maintenance
                                         THEN
                                             'NO'
                                         ELSE
-                                            'Ult confirm'||TO_CHAR(M.fec_con, '%Y-%m-%d %H:%M:%S')
+                                            TO_CHAR(M.fec_con, '%Y-%m-%d %H:%M:%S')
                                         END AS is_confirmed,
                                         CASE WHEN(M.num_scn IS NULL)
                                         THEN
@@ -319,7 +319,7 @@ namespace BL.Maintenance
         }
         private static ML.Maintenance.ApiRequestWMS GetOracleWMSInfo(string orderNumber, string mode)
         {
-            var result = new ML.Maintenance.ApiRequestWMS();
+            ML.Maintenance.ApiRequestWMS result = new ML.Maintenance.ApiRequestWMS();
 
             try
             {
@@ -361,8 +361,8 @@ namespace BL.Maintenance
                                         { 0, "Creado" },
                                         { 10, "Parcialmente asignado" },
                                         { 20, "Asignado" },
-                                        { 25, "In Picking" },
-                                        { 27, "Picked" },
+                                        { 25, "En recolección" },
+                                        { 27, "Preparado" },
                                         { 30, "En empaquetado" },
                                         { 40, "Empaquetado" },
                                         { 50, "Cargado" },
@@ -569,14 +569,14 @@ namespace BL.Maintenance
 
                     if (confirmedInfo.IsPosfec)
                     {
-                        UpdateDate(connection, confirmedInfo.FecEnt, confirmedInfo.NumScn);
+                        UpdateDate(connection, confirmedInfo.FecEnt, confirmedInfo);
                         UpdateLgahventa(connection, confirmedInfo);
                         UpdateLgaposfecha(connection, confirmedInfo);
                     }
 
                     if (confirmedInfo.IsConfirmed)
                     {
-                        UpdateOraMantenimiento(connection, confirmedInfo.CodPos, confirmedInfo.NumEdc);
+                        UpdateOraMantenimiento(connection, confirmedInfo.CodPto, confirmedInfo.NumEdc);
                         UpdateOraConfirmacion(connection, confirmedInfo);
                     }
 
@@ -711,7 +711,7 @@ namespace BL.Maintenance
                 using (OdbcCommand cmd = new OdbcCommand(updateQuery, connection))
                 {
                     int rowsAffected = cmd.ExecuteNonQuery();
-                    System.Console.WriteLine($"[BL] UpdateCliCoord - Updated existing record, rows affected: {rowsAffected}");
+                    //System.Console.WriteLine($"[BL] UpdateCliCoord - Updated existing record, rows affected: {rowsAffected}");
 
                     if (rowsAffected < 1)
                     {
@@ -783,12 +783,12 @@ namespace BL.Maintenance
                 }
             }
         }
-        private static void UpdateDate(OdbcConnection connection, string fecEnt, string numScn)
+        private static void UpdateDate(OdbcConnection connection, string fecEnt, ML.Maintenance.ConfirmedInfoByScn confirmedInfo)
         {
             string updateEdcCab = $@"UPDATE edc_cab 
-                                    SET fec_ent = '{fecEnt}'
+                                    SET fec_cli = '{confirmedInfo.FecEnt}'
                                     WHERE cod_emp = 1 
-                                    AND num_scn = '{numScn}'";
+                                    AND num_scn = '{confirmedInfo.NumScn}'";
 
             using (OdbcCommand cmd = new OdbcCommand(updateEdcCab, connection))
             {
@@ -796,7 +796,23 @@ namespace BL.Maintenance
 
                 if (rowsAffected < 1)
                 {
-                    throw new Exception("No rows affected in edc_cab update");
+                    throw new Exception("No se actualizo fecha genesix 1");
+                }
+            }
+
+            string updateOrdEdcCab = $@"UPDATE ordedc_cab 
+                                    SET fec_cli = '{fecEnt}'
+                                    WHERE cod_emp = 1 
+                                    AND cod_pto = {confirmedInfo.CodPto}
+                                    AND num_edc = {confirmedInfo.NumEdc}";
+
+            using (OdbcCommand cmd = new OdbcCommand(updateEdcCab, connection))
+            {
+                int rowsAffected = cmd.ExecuteNonQuery();
+
+                if (rowsAffected < 1)
+                {
+                    throw new Exception("No se actualizo fecha genesix 2");
                 }
             }
         }
@@ -867,8 +883,6 @@ namespace BL.Maintenance
             }
         }
         
-
-
         /*----------------------------------------------------------------------------*/
 
         public static ML.Result GetToConfirm(string mode)
@@ -912,13 +926,14 @@ namespace BL.Maintenance
                                     AND B.num_edc = A.num_edc
                                     AND B.pto_alm = 870
                                     AND B.tip_ent = 1
-                                    AND B.num_scn NOT IN (SELECT num_scn FROM ora_conf_exclu)
                                     AND B.estado IN ('I','P')
-                                    AND B.num_scn NOT IN (SELECT num_scn FROM ora_ruta WHERE estatus = 0)
+                                    AND B.num_scn NOT IN (SELECT num_scn FROM ora_excluye)
+                                    AND B.num_scn NOT IN (SELECT num_scn FROM ora_ruta WHERE estatus IN (0,2))
+                                    AND B.num_scn NOT IN (SELECt num_scn FROM ora_confirmacion WHERE cod_emp = 1 AND estatus = 0 AND fec_ent >= TODAY)
+                                    AND B.num_scn NOT IN (SELECt num_scn FROM ora_drouting WHERE cod_emp = 1 AND fec_ent >= TODAY)
                                     AND C.cod_emp = A.cod_emp
                                     AND C.cod_pto = A.cod_pto
                                     AND C.num_edc = A.num_edc
-                                    AND C.estado IN ('I','P')
                                     AND D.cod_pto = B.cod_pto
                                     AND D.num_edc = B.num_edc
                                     AND D.num_scn = B.num_scn

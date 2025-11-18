@@ -12,9 +12,9 @@
         </div>
         <div class="form-row">
             <div class="form-field">
-                <label for="searchValue" class="form-label">Folio de conocimiento para embarque WMS</label>
+                <label for="searchValue" class="form-label">Carga de salida de WMS</label>
                 <input type="search" id="searchValue" name="searchValue" class="form-control"
-                       placeholder="Ej.: 2724141" maxlength="15" required />
+                       maxlength="50" required />
             </div>
             <button type="button" class="btn btn-primary button-search" id="btnSearch" aria-label="Buscar" title="Buscar folio">
                 <i class="bi bi-search"></i>
@@ -40,30 +40,19 @@
     <script>
         let salesChecks = [];
 
-        document.getElementById('searchValue').addEventListener('keypress', function(event) {
-            const allowedKeys = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'];
-            if (allowedKeys.includes(event.key)) {
-                return;
-            }
-            if (!/^\d$/.test(event.key)) {
-                event.preventDefault();
-            }
-        });
-
         document.getElementById('searchValue').addEventListener('paste', function(event) {
             event.preventDefault();
             const clipboardData = event.clipboardData?.getData('text') || '';
-            const digitsOnly = clipboardData.replace(/\D/g, '');
-            if (digitsOnly) {
+            if (clipboardData) {
                 const currentValue = this.value || '';
                 const start = this.selectionStart || 0;
                 const end = this.selectionEnd || 0;
-                const newValue = currentValue.substring(0, start) + digitsOnly + currentValue.substring(end);
-                const maxLength = 15;
+                const newValue = currentValue.substring(0, start) + clipboardData + currentValue.substring(end);
+                const maxLength = 50;
                 const finalValue = newValue.substring(0, maxLength);
                 this.value = finalValue;
                 setTimeout(() => {
-                    const newCursorPosition = Math.min(start + digitsOnly.length, finalValue.length);
+                    const newCursorPosition = Math.min(start + clipboardData.length, finalValue.length);
                     this.setSelectionRange(newCursorPosition, newCursorPosition);
                 }, 0);
             }
@@ -105,7 +94,11 @@
             document.getElementById('salesChecksContainer').style.display = 'none';
             document.getElementById('btnAsignar').disabled = true;
 
+            // WMS: Usar nuevo endpoint
+            fetch(`/api/preconWMS/${encodeURIComponent(searchValue)}`)
+            /* LGA: Endpoint original comentado
             fetch(`/api/precon/${encodeURIComponent(searchValue)}`)
+            */
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(err => Promise.reject(err));
@@ -113,7 +106,9 @@
                     return response.json();
                 })
                 .then(data => {
-                    salesChecks = data.map(item => item.sales_check);
+                    // WMS: Cambiar de sales_check a num_scn
+                    salesChecks = data.map(item => item.num_scn || item.sales_check);
+                    // LGA: salesChecks = data.map(item => item.sales_check);
                     document.getElementById('progressBar').style.display = 'none';
 
                     if (salesChecks.length > 0) {

@@ -11,4 +11,8 @@
     <PackageReference Include="System.Data.Odbc" Version="9.0.5" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="RouteOperator\" />
+  </ItemGroup>
+
 </Project>

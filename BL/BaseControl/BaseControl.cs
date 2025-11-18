@@ -322,7 +322,7 @@ namespace BL.BaseControl
                                     INNER JOIN clientes F ON F.cod_emp = B.cod_emp AND F.cod_cli = B.cod_cli
                                     WHERE A.pto_alm = {queryInfo.pto_alm}
                                     AND A.{queryInfo.data_type} IN ({inClause})
-                                    ORDER BY A.estatus ASC, A.car_sal, A.num_scn";
+                                    ORDER BY A.estatus ASC, A.fec_car, A.num_scn";
 
                     List<ML.BaseControl.Order> orderList = new List<ML.BaseControl.Order>();
 

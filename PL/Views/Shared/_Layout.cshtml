@@ -7,9 +7,16 @@
 
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/PL.styles.css" asp-append-version="true" />
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+
 
     @RenderSection("Styles", required: false)
 </head>
@@ -26,15 +33,12 @@
                     <span class="navbar-toggler-icon"></span>
                 </button>
 
-                <!-- Menú scrollable dentro del collapse -->
                 <div class="collapse navbar-collapse flex-grow-1" id="mainNavbar" style="min-width:0;">
                     <div class="d-flex align-items-center overflow-hidden w-100">
-                        <!-- Botón scroll izquierda -->
                         <button type="button" class="scroll-btn left-btn btn btn-sm btn-dark flex-shrink-0 me-1">
-                            <i class="bi bi-chevron-left"></i>
+                            <i class="bi bi-caret-left-fill"></i>
                         </button>
 
-                        <!-- Menú central scrollable -->
                         <div class="menu-scroll flex-grow-1 mx-1">
                             <ul class="navbar-nav flex-row flex-nowrap mb-0" style="white-space: nowrap;">
                                 @await Html.PartialAsync("_MenuPartial", BL.Menu.MenuService.GetMenu(
@@ -45,9 +49,8 @@
                             </ul>
                         </div>
 
-                        <!-- Botón scroll derecha -->
                         <button type="button" class="scroll-btn right-btn btn btn-sm btn-dark flex-shrink-0 ms-1">
-                            <i class="bi bi-chevron-right"></i>
+                            <i class="bi bi-caret-right-fill"></i>
                         </button>
                     </div>
                 </div>

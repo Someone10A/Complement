@@ -49,15 +49,15 @@
                 <!-- Sección Cliente / Nombre -->
 
                 <div class="col-md-3">
-                    <label class="form-label">NomCli</label>
+                    <label class="form-label">Nombre</label>
                     <input class="form-control readonly-field" id="NomCli" name="NomCli" value="@Model.NomCli" readonly />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Ape1Cli</label>
+                    <label class="form-label">Paterno</label>
                     <input class="form-control readonly-field" id="Ape1Cli" name="Ape1Cli" value="@Model.Ape1Cli" readonly />
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">Ape2Cli</label>
+                    <label class="form-label">Materno</label>
                     <input class="form-control readonly-field" id="Ape2Cli" name="Ape2Cli" value="@Model.Ape2Cli" readonly />
                 </div>
                 <!-- Estado GNX mapping y restricción para guardar -->
@@ -74,11 +74,11 @@
 
                 <!-- Telefonos -->
                 <div class="col-md-6">
-                    <label class="form-label">TelCli</label>
+                    <label class="form-label">Telefono 1</label>
                     <input class="form-control" id="TelCli" name="TelCli" value="@Model.TelCli" readonly />
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">TelCli1</label>
+                    <label class="form-label">Telefono 2</label>
                     <input class="form-control" id="TelCli1" name="TelCli1" value="@Model.TelCli1" readonly />
                 </div>
 
@@ -99,6 +99,7 @@
                             _ => "Estado desconocido" 
                         };
                     }
+
                     <input class="form-control readonly-field" id="EstadoCombined" name="EstadoCombined" readonly value="@($"{Model.Estado1}-{Model.Estado2} - {estatusGnx}")" />
                     <small class="small-muted">Estatus de genesix</small>
                 </div>
@@ -120,19 +121,26 @@
                     </small>
                 </div>
 
-                <!-- Fecha con calendario -->
+                <!--Fecha-->
                 <div class="col-md-6">
-                    <label for="fechaElegida" class="form-label">Fecha</label>
+                    <label for="fechaElegida" class="form-label">Fecha Entrega</label>
                     <input id="fechaElegida" name="fechaElegida" type="date" class="form-control" />
                     <small class="small-muted">Fecha de entrega.</small>
-                </div>
-                <div>
                     <input type="hidden" id="FecEntOriginal" name="FecEntOriginal" />
+                </div>
+                <!-- RDD -->
+                <div class="col-md-6">
+                    <div id="rddSection" class="section-card"
+                         style="color: green; display:@(Model.IsRdd == "SI" ? "block" : "none")">
+                        <div><strong>RDD:</strong> Sí</div>
+                        <div><strong>Numero de RDD:</strong> <span id="numRddText">@Model.NumRdd</span></div>
+                        <input type="hidden" id="IsRdd" name="IsRdd" value="" />
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Dirección / dinámica CodPos -> Estado/Municipio/Colonias -->
+        <!---->
         <div class="col-12">
             <div class="row g-3 section-card mt-3">
                 <div class="col-md-3">
@@ -160,8 +168,8 @@
                 </div>
 
                 <div class="col-md-4">
-                    <label class="form-label">Calle</label>
-                    <input id="Calle" name="Calle" class="form-control" value="@Model.Calle" />
+                    <label class="form-label">Calle<span class="required-star">*</span></label>
+                    <input id="Calle" name="Calle" class="form-control" value="@Model.Calle" required />
                     <small class="small-muted">Calle de la direccion.</small>
                 </div>
                 <div class="col-md-2">
@@ -229,17 +237,9 @@
                     <label class="form-label">Latitud <span class="required-star">*</span></label>
                     <input id="Latitud" name="Latitud" class="form-control" value="@Model.Latitud" required />
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
+                <div class="col-md-2 d-flex align-items-end">   
                     <button id="btnRecalcular" type="button" class="btn btn-outline-secondary w-100">Recalcular</button>
                 </div>
-            </div>
-        </div>
-
-        <!-- RDD -->
-        <div class="col-12 mt-3">
-            <div id="rddSection" class="section-card" style="display: @(Model.IsRdd == "SI" ? "block" : "none")">
-                <div><strong>RDD:</strong> Sí</div>
-                <div><strong>NumRdd:</strong> @Model.NumRdd</div>
             </div>
         </div>
 
@@ -277,8 +277,7 @@
         <!-- CRB / Confirmar toggles -->
         <div class="col-12 mt-3">
             <div class="section-card">
-                <div class="custom-switch d-flex align-items-center justify-content-between flex-wrap gap-4">
-
+                <div class="custom-switch d-flex align-items-center justify-content-end flex-wrap gap-4">
                     <!-- Grupo de toggles -->
                     <div class="d-flex align-items-center gap-4 flex-wrap">
                         <label class="switch-label">
@@ -287,7 +286,7 @@
                                    class="switch-input"
                                    @(Model.IsCrb ? "checked" : "") />
                             <span class="switch-slider"></span>
-                            <span class="switch-text">IsCRB</span>
+                            <span class="switch-text">Es CRB</span>
                         </label>
 
                         <label class="switch-label">
@@ -310,6 +309,27 @@
         </div>
 
     </form>
+</div>
+
+<div id="loadingOverlay" style="
+    display:none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+">
+    <div class="spinner" style="
+        width: 60px;
+        height: 60px;
+        border: 8px solid #eee;
+        border-top: 8px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    "></div>
 </div>
 
 @section Styles {
@@ -479,6 +499,16 @@
                 cursor: not-allowed !important;
                 pointer-events: none !important;
             }
+
+        @@keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
     </style>
 }
 
@@ -489,6 +519,13 @@
 
 @section Scripts {
     <script>
+
+        function showLoader() {
+            $("#loadingOverlay").css("display", "flex");
+        }
+        function hideLoader() {
+            $("#loadingOverlay").hide();
+        }
 
         const model = {
             NumScn: '@(Model?.NumScn ?? "")',
@@ -529,7 +566,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            // Mostrar estatus GNX textual
             const estText = estatusGnx(model.Estado1);
             // document.getElementById('estatusGnxText').textContent = estText;
             const el = document.getElementById('estatusGnxText');
@@ -537,30 +573,24 @@
                 el.textContent = estatusGnx(model.Estado1);
             }
 
-            // applyRestrictions();
-
-            // Poner fecha calculada por defecto
             const fechaCalc = pickFecha(model.FecEntOriginal, model.FecCli, model.FecEntR);
             if (fechaCalc) {
                 document.getElementById('fechaElegida').value = fechaCalc;
-                document.querySelector('input[name="FecEnt"]').value = fechaCalc; // hidden FecEnt
+                document.querySelector('input[name="FecEnt"]').value = fechaCalc; 
             }
 
-            // Set hidden toggles
             setSNHiddenFields();
 
-            // Mostrar u ocultar RDD
             const rddSection = document.getElementById('rddSection');
             if (rddSection) {
                 rddSection.style.display = (model.IsRdd === 'SI') ? 'block' : 'none';
             }
 
-            // Inicializar colonia original (si hay)
             const orig = '@Model.ColoniaOriginal';
             if (orig && orig.trim() !== '') {
-                document.getElementById('originalColonia').textContent = 'Original: ' + orig;
+                document.getElementById('OriginalColonia').textContent = 'Original: ' + orig;
             } else {
-                // document.getElementById('originalColonia').style.display = 'none';
+
             }
         });
 
@@ -568,7 +598,6 @@
         // Funciones de fecha
         // ----------------------
         function pickFecha(FecEnt, FecCli, FecEntR) {
-            // Implementación exacta de la lógica que diste
             if (!FecCli || FecCli.trim() === '') {
                 if (!FecEntR || FecEntR.trim() === '') {
                     return formatearFechaHora(FecEnt);
@@ -608,6 +637,13 @@
         // ----------------------
         // Llenar datos por SCN
         // ----------------------
+        $("#numScnSearch").on("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                $("#btnSearchScn").click();
+            }
+        });
+
         document.getElementById('btnSearchScn').addEventListener('click', async () => {
             const num = document.getElementById('numScnSearch').value?.trim();
             if (!num) {
@@ -621,13 +657,11 @@
                     throw new Error('Error al comunicarse con el servidor');
                 }
                 const data = await res.json();
-                // console.log('Respuesta del servidor:', data);
                 if (!data || Object.keys(data).length === 0 || data.notFound) {
                     Swal.fire({ icon: 'info', title: 'No encontrado', text: 'No se encontró el SCN.' });
                     return;
                 }
 
-                // Poblar
                 populateFromData(data);
             } catch (err) {
                 console.error(err);
@@ -636,14 +670,12 @@
         });
 
         function populateFromData(d) {
-            // console.log('populateFromData recibio:', d);
 
             const setVal = (selector, val) => {
                 const el = document.querySelector(selector);
                 if (el) el.value = val ?? '';
             };
 
-            // Hidden
             setVal('input[name="NumScn"]', d.numScn);
             setVal('input[name="PtoAlm"]', d.ptoAlm);
             setVal('input[name="CodPto"]', d.codPto);
@@ -651,7 +683,6 @@
             setVal('input[name="CodCli"]', d.codCli);
             setVal('input[name="CodDir"]', d.codDir);
 
-            // Visibles
             setVal('#numScnSearch', d.numScn);
             setVal('#NomCli', d.nomCli);
             setVal('#Ape1Cli', d.ape1Cli);
@@ -673,7 +704,7 @@
             setVal('#Longitud', d.longitud);
             setVal('#Latitud', d.latitud);
 
-            // Toggles
+
             const toggle = (id, cond) => {
                 const el = document.getElementById(id);
                 if (el) el.checked = cond;
@@ -684,30 +715,31 @@
             toggle('switchIsCrb', !!d.isCrb);
             toggle('switchIsConfirmed', !!d.isConfirmed);
 
-            // Estado GNX
             const estEl = document.getElementById('estatusGnxText');
             if (estEl) estEl.textContent = estatusGnx(d.estado1);
 
-            // RDD
             const rdd = document.getElementById('rddSection');
             if (rdd) {
                 rdd.style.display = (d.isRdd === 'SI') ? 'block' : 'none';
+
+                const numRddText = document.getElementById('numRddText');
+                if (numRddText) {
+                    numRddText.textContent = d.numRdd || '';
+                }
             }
 
-            // Colonia
+
             if (d.codPos) {
                 setVal('#CodPos', d.codPos);
                 fetchColoniasByCodPos(d.codPos, d.coloniaOriginal);
             }
 
-            // Fecha
             const fecha = pickFecha(d.fecEnt, d.fecCli, d.fecEntR);
             if (fecha) {
                 setVal('#fechaElegida', fecha);
                 setVal('#FecEntOriginal', fecha);
             }
 
-            // WMS
             if (d.apiRequestWMS) {
                 const wmsSection = document.getElementById('wmsSection');
                 if (wmsSection) {
@@ -718,7 +750,6 @@
                 }
             }
 
-            // Details
             if (d.details && d.details.length) {
                 const detailsContainer = document.getElementById('detailsContainer');
                 if (detailsContainer) {
@@ -746,7 +777,7 @@
         function applyRestrictions(d) {
             const reasons = [];
             clearRestrictionDivs();
-            //GNX
+
             const estatGnx = estatusGnx(d.estado1);
             const estatusNoPermitido = !['Transito', 'Retenido-Transito', 'Impreso'].includes(estatGnx);
             const gnxDiv = document.getElementById('GnxData');
@@ -756,7 +787,7 @@
                     gnxDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento, orden en genesix ${estatGnx}</small>`;
                     reasons.push(`El estatus de GNX no es válido (${estatGnx})`);
                 } else {
-                    // gnxDiv.innerHTML = `<small style="color:green;">Se puede dar mantenimiento, ${estatGnx}</small>`;
+                    
                 }
             }
 
@@ -824,7 +855,6 @@
                 }
             }
         }
-
 
         // ----------------------
         // CodPos -> GetColByCodPos
@@ -926,7 +956,7 @@
             const lat = parseFloat(document.getElementById('Latitud').value);
             if (isNaN(lon) || isNaN(lat) || (lon === 0 && lat === 0)) {
                 Swal.fire({ icon: 'warning', title: 'Coordenadas inválidas', text: 'Las coordenadas no pueden ser 0,0 o vacías.' });
-                return; // cancela el envío
+                return; 
             }
 
             // Colonia: si dropdown vacio y existe original, mandar original, si no pedir obligatorio
@@ -964,6 +994,9 @@
                 return;
             }
 
+            const visible = $("#rddSection").css("display") !== "none";
+            document.getElementById("IsRdd").value = visible ? "true" : "false";
+
             // // Revalidar reglas de bloqueo
             // applyRestrictions();
             // if (document.getElementById('btnGuardar').disabled) {
@@ -972,9 +1005,12 @@
             // }
 
             // Enviar form (POST)
-            console.log('Valor actual de IsPosfec:',
-            document.querySelector('input[name="IsPosfec"]').value);
-                const formData = new FormData(this);
+            // console.log('Valor actual de IsPosfec:',document.querySelector('input[name="IsPosfec"]').value);
+
+
+            showLoader();
+
+            const formData = new FormData(this);
                 fetch('/Maintenance/UpdateScnInfo', { method: 'POST', body: formData })
                 .then(r => {
                     if (!r.ok) throw new Error('error al guardar');
@@ -982,6 +1018,7 @@
                 })
                 .then(res => {
                     if (res.success) {
+                        limpiarVistaScn();
                         Swal.fire({ icon: 'success', title: 'Guardado', text: 'Datos guardados correctamente.' });
                     } else {
                         Swal.fire({ icon: 'error', title: 'No guardado', text: res.message || 'Error desconocido.' });
@@ -990,9 +1027,82 @@
             .catch(err => {
                 console.error(err);
                 Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al guardar.' });
-            });
+            })
+            .finally(() => hideLoader());;
 
         });
+
+        function limpiarVistaScn() {
+
+            $("#numScnSearch").val("");
+
+            $("#NomCli").val("");
+            $("#Ape1Cli").val("");
+            $("#Ape2Cli").val("");
+
+            $("#TelCli").val("");
+            $("#TelCli1").val("");
+
+            $("#EstadoCombined").val("");
+            $("#OrdRel").val("");
+
+            $("#fechaElegida").val("");
+            $("#FecEntOriginal").val("");
+
+            $("#CodPos").val("");
+            $("#Estado").val("");
+            $("#Municipio").val("");
+
+            $("#ColoniaDropdown").val("");
+            $("#OriginalColonia").text("Original: ");
+
+            $("#Calle").val("");
+            $("#NumExt").val("");
+            $("#NumInt").val("");
+            $("#Referencias").val("");
+            $("#Observaciones").val("");
+
+            $("#switchPanel").prop("checked", false);
+            $("#switchVolado").prop("checked", false);
+            $("#switchMasGen").prop("checked", false);
+
+            $("#switchIsCrb").prop("checked", false);
+            $("#switchIsConfirmed").prop("checked", false);
+
+            $("#Longitud").val("");
+            $("#Latitud").val("");
+
+            $("#rddSection").hide();
+
+            $("#hPanel").val("N");
+            $("#hVolado").val("N");
+            $("#hMasGen").val("N");
+
+            $("#NumScn").val("");
+            $("#PtoAlm").val("");
+            $("#CodPto").val("");
+            $("#NumEdc").val("");
+            $("#CodCli").val("");
+            $("#CodDir").val("");
+            $("#IsRdd").val("");
+            $("#NumRdd").val("");
+            $("#FecEnt").val("");
+            $("#IsPosfec").val("");
+            $("#IsCrb").val("");
+            $("#IsConfirmed").val("");
+
+            $("#GnxData").empty();
+            $("#WmsData").empty();
+            $("#ConfirmationData").empty();
+            $("#RouteData").empty();
+            $("#PlanData").empty();
+
+            $("#detailsContainer").html('<div class="text-muted">No hay detalles.</div>');
+
+            $("#btnGuardar").prop("disabled", true);
+
+            $("#numScnSearch").focus();
+        }
 
         // ----------------------
         // Recalcular longitud/latitud
@@ -1081,12 +1191,12 @@
             $("#btnRecalcular").on("click", function () {
                 // const interno = $("#NumInt").val() || "";
                 // const externo = $("#NumExt").val() || "";
-                const calle = 'Calle' + $("#Calle").val() || "";
+                const calle = ($("#Calle").val()?.trim() ? "Calle " + $("#Calle").val().trim() : "");
                 const colonia = $("#ColoniaDropdown").val() || "";
                 const municipio = $("#Municipio").val() || "";
                 const estado = $("#Estado").val() || "";
                 const cp = $("#CodPos").val() || "";
-                const pais = "México";
+                const pais = "Mexico";
 
                 if (!calle || !colonia || !municipio || !estado || !cp) {
                     Swal.fire({
@@ -1109,6 +1219,10 @@
         const fechaInput = document.getElementById('fechaElegida');
         const hoy = new Date().toISOString().split('T')[0];
         fechaInput.min = hoy;
+
+        const maxDate = new Date(hoy);
+        maxDate.setMonth(maxDate.getMonth() + 6);
+        fechaInput.max = maxDate.toISOString().split('T')[0];
 
         fechaInput.addEventListener('change', function() {
             if (this.value < hoy) {

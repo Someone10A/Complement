@@ -122,7 +122,7 @@ namespace PL.Controllers
             }
 
             List<ML.Maintenance.ScnToConfirm> scnToConfirm = new List<ScnToConfirm>();
-            ML.Result result = BL.Maintenance.Maintenance.GetToConfirm("PRO");
+            ML.Result result = BL.Maintenance.Maintenance.GetToConfirm(mode);
 
             ViewBag.Error = result.Message;
 

@@ -5,7 +5,7 @@ namespace PL.Controllers
 {
     public class CartaPorteController : Controller
     {
-        string mode = "DEV";
+        string mode = "PRO";
 
         [HttpGet]
         public IActionResult Index()
@@ -37,14 +37,14 @@ namespace PL.Controllers
     [Route("api")]
     public class CartaPorteApiController : ControllerBase
     {
-        string mode = "DEV";
+        string mode = "PRO";
 
-        [HttpGet("precon/{precon}")]
+        [HttpGet("preconWMS/{precon}")]
         public async Task<IActionResult> GetScnByCono(string precon)
         {
             try
             {
-                var result = await BL.CartaPorte.CartaPorte.GetScnByCono(precon, mode);
+                var result = await BL.CartaPorte.CartaPorteWms.GetScnByCono(precon, mode);
 
                 if (!result.Correct)
                 {
@@ -69,12 +69,12 @@ namespace PL.Controllers
             }
         }
 
-        [HttpGet("operadoresLga")]
+        [HttpGet("operadoresWMS")]
         public async Task<IActionResult> GetOperadores()
         {
             try
             {
-                var result = await BL.CartaPorte.CartaPorte.GetOperadores(mode);
+                var result = await BL.CartaPorte.CartaPorteWms.GetOperadores(mode);
 
                 if (!result.Correct)
                 {
@@ -89,12 +89,12 @@ namespace PL.Controllers
             }
         }
 
-        [HttpGet("unidadesLga")]
+        [HttpGet("unidadesWMS")]
         public async Task<IActionResult> GetUnidades()
         {
             try
             {
-                var result = await BL.CartaPorte.CartaPorte.GetUnidades(mode);
+                var result = await BL.CartaPorte.CartaPorteWms.GetUnidades(mode);
 
                 if (!result.Correct)
                 {
@@ -109,16 +109,16 @@ namespace PL.Controllers
             }
         }
 
-        [HttpPost("enviarCarta")]
+        [HttpPost("enviarCartaWMS")]
         public async Task<IActionResult> EnviarCarta([FromBody] EnviarCartaRequest request)
         {
             try
             {
-                System.Console.WriteLine($"\n[ENVIAR CARTA] Iniciando proceso para folio: {request?.Folio}, FechaSalida: {request.FechaSalida}");
+                //System.Console.WriteLine($"\n[ENVIAR CARTA WMS] Iniciando proceso para folio: {request?.Folio}, FechaSalida: {request.FechaSalida}");
 
                 if (request == null || string.IsNullOrEmpty(request.Folio))
                 {
-                    System.Console.WriteLine("[ENVIAR CARTA] Error: Request inválido o folio faltante");
+                    //System.Console.WriteLine("[ENVIAR CARTA WMS] Error: Request inválido o folio faltante");
                     return BadRequest(new
                     {
                         type = "Response",
@@ -132,7 +132,7 @@ namespace PL.Controllers
                     });
                 }
 
-                var result = await BL.CartaPorte.CartaPorte.EnviarCarta(request, mode);
+                var result = await BL.CartaPorte.CartaPorteWms.EnviarCarta(request, mode);
 
                 if (!result.Correct)
                 {
@@ -153,8 +153,8 @@ namespace PL.Controllers
             }
             catch (Exception ex)
             {
-                System.Console.WriteLine($"[ENVIAR CARTA] Error: {ex.Message}");
-                System.Console.WriteLine($"[ENVIAR CARTA] Stack trace: {ex.StackTrace}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Error: {ex.Message}");
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Stack trace: {ex.StackTrace}");
                 return StatusCode(500, $"Error interno del servidor: {ex.Message}");
             }
         }

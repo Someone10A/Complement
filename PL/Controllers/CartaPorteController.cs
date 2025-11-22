@@ -132,7 +132,15 @@ namespace PL.Controllers
                     });
                 }
 
-                var result = await BL.CartaPorte.CartaPorteWms.EnviarCarta(request, mode);
+                // Obtener usuario de la sesión
+                var usuId = HttpContext.Session.GetString("usu_id");
+                int? usuCon = null;
+                if (!string.IsNullOrEmpty(usuId) && int.TryParse(usuId, out int usuIdInt))
+                {
+                    usuCon = usuIdInt;
+                }
+
+                var result = await BL.CartaPorte.CartaPorteWms.EnviarCarta(request, mode, usuCon);
 
                 if (!result.Correct)
                 {

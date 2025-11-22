@@ -73,7 +73,7 @@
         document.getElementById('btnAsignar').addEventListener('click', function() {
             const searchValue = document.getElementById('searchValue').value;
             if (salesChecks.length > 0 && searchValue) {
-                window.location.href = '@Url.Action("AsignarUnidad", "CartaPorteLga")?folio=' + encodeURIComponent(searchValue);
+                window.location.href = '@Url.Action("AsignarUnidad", "CartaPorte")?folio=' + encodeURIComponent(searchValue);
             }
         });
 
@@ -136,7 +136,7 @@
                         confirmButtonText: 'Aceptar'
                     }).then((result) => {
                         if (result.isConfirmed) {
-                            window.location.href = '@Url.Action("Index", "CartaPorteLga")';
+                            window.location.href = '@Url.Action("Index", "CartaPorte")';
                         }
                     });
                 });

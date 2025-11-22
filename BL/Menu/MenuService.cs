@@ -71,8 +71,8 @@ namespace BL.Menu
                 new("Pendientes Confirmacion", "Maintenance", "GetToConfirm", "bi-calendar-check"),
                 new("Carta Porte", "CartaPorte", "Index", "bi-file-earmark-text bi-truck"),
                 new("Ordenes Listas", "DeliveryPlanner", "GetReadyOrdersPerDate", "bi-file-earmark-check bi-send"),
-                new("Planeacion", "DeliveryPlanner", "Planning", "bi-map bi-diagram-3")
-
+                new("Planeacion", "DeliveryPlanner", "Planning", "bi-map bi-diagram-3"),
+                new("Operadores", "RouteOperator", "ListOperadores", "bi-receipt")
             };
         }
     }

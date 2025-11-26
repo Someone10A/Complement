@@ -125,7 +125,7 @@
                 <div class="col-md-6">
                     <label for="fechaElegida" class="form-label">Fecha Entrega</label>
                     <input id="fechaElegida" name="fechaElegida" type="date" class="form-control" />
-                    <small class="small-muted">Fecha de entrega.</small>
+                    <small  id="msgTope" class="small-muted">Fecha de entrega.</small>
                     <input type="hidden" id="FecEntOriginal" name="FecEntOriginal" />
                 </div>
                 <!-- RDD -->
@@ -519,7 +519,6 @@
 
 @section Scripts {
     <script>
-
         function showLoader() {
             $("#loadingOverlay").css("display", "flex");
         }
@@ -567,7 +566,6 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             const estText = estatusGnx(model.Estado1);
-            // document.getElementById('estatusGnxText').textContent = estText;
             const el = document.getElementById('estatusGnxText');
             if (el) {
                 el.textContent = estatusGnx(model.Estado1);
@@ -620,18 +618,54 @@
             return `${anio}-${mes}-${dia}`;
         }
 
-        document.getElementById('fechaElegida').addEventListener('change', function () {
-            const chosen = this.value;
-            const original = document.getElementById('FecEntOriginal').value;
-            document.querySelector('input[name="FecEnt"]').value = chosen || original;
+        function validarTopeFecha(fechaInput) {
 
-            const isPos = (chosen && chosen !== original);
-            const val = isPos ? 'true' : 'false';
-            document.querySelector('input[name="IsPosfec"]').value = val;
+            const chosen = fechaInput.value;
+            if (!chosen) return;
 
-            console.log('chosen:', chosen);
-            console.log('original:', original);
-            console.log('isPosfec final:', val);
+            const [yyyy, MM, dd] = chosen.split("-");
+            const fecha = dd + MM + yyyy;
+
+            fetch('/Maintenance/GetTope', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: `date=${fecha}`
+            })
+            .then(r => r.json())
+            .then(response => {
+
+                const msg = document.getElementById("msgTope");
+
+                if (!response.success) {
+                    msg.textContent = response.message;
+                    msg.style.color = "red";
+                    fechaInput.value = "";
+                    return;
+                }
+
+                const { isOk, message } = response.data;
+
+                msg.textContent = message;
+                msg.style.color = isOk ? "green" : "red";
+
+                if (!isOk) {
+                    fechaInput.value = "";
+                }
+            });
+        }
+
+        $(document).ready(function () {
+            document.getElementById('fechaElegida').addEventListener('change', function () {
+                const chosen = this.value;
+                const original = document.getElementById('FecEntOriginal').value;
+                document.querySelector('input[name="FecEnt"]').value = chosen || original;
+
+                const isPos = (chosen && chosen !== original);
+                const val = isPos ? 'true' : 'false';
+                document.querySelector('input[name="IsPosfec"]').value = val;
+
+                validarTopeFecha(this);
+            });
         });
 
         // ----------------------
@@ -1217,10 +1251,14 @@
         // ----------------------
 
         const fechaInput = document.getElementById('fechaElegida');
-        const hoy = new Date().toISOString().split('T')[0];
+
+        const hoyLocal = new Date();
+        hoyLocal.setHours(0, 0, 0, 0);
+        const hoy = hoyLocal.toISOString().split('T')[0];
+
         fechaInput.min = hoy;
 
-        const maxDate = new Date(hoy);
+        const maxDate = new Date(hoyLocal);
         maxDate.setMonth(maxDate.getMonth() + 6);
         fechaInput.max = maxDate.toISOString().split('T')[0];
 
@@ -1230,6 +1268,7 @@
                 this.value = hoy;
             }
         });
+
 
     </script>
 }

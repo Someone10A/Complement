@@ -104,16 +104,11 @@ namespace BL.Maintenance
                                         ELSE
                                             TO_CHAR(M.fec_con, '%Y-%m-%d %H:%M:%S')
                                         END AS is_confirmed,
-                                        CASE WHEN(M.num_scn IS NULL)
+                                        CASE WHEN(O.num_scn IS NULL)
                                         THEN
                                             'NO'
                                         ELSE
-                                            CASE WHEN(M.estatus = 1)
-                                            THEN
-                                                'SI'
-                                            ELSE
-                                                'NO'
-                                            END
+                                            'SI'
                                         END AS in_plan,
 	                                    CASE WHEN (N.num_scn IS NULL)
 	                                    THEN
@@ -133,7 +128,8 @@ namespace BL.Maintenance
 	                                    OUTER ora_integra_envio J,
 	                                    OUTER rdd_cab K,
 	                                    OUTER ora_ruta N,
-                                        OUTER ora_confirmacion M
+                                        OUTER ora_confirmacion M,
+                                        OUTER ora_drouting O
                                     WHERE A.cod_emp = 1
                                     AND A.tip_ent = 1
                                     AND A.num_scn = '{numScn}'
@@ -163,8 +159,13 @@ namespace BL.Maintenance
                                     AND N.pto_alm = A.pto_alm
                                     AND N.num_scn = A.num_scn
                                     AND N.estatus = 0
+                                    AND M.pto_alm = A.pto_alm
                                     AND M.num_scn = A.num_scn
-                                    AND M.estatus IN (0,1)";
+                                    AND M.estatus IN (0,1)
+                                    AND O.cod_emp = A.cod_emp
+                                    AND O.pto_alm = A.pto_alm
+                                    AND O.num_scn = A.num_scn
+                                    AND O.fec_ent >= TODAY";
 
                     ML.Maintenance.InfoByScn scnInfo = new ML.Maintenance.InfoByScn();
 
@@ -558,6 +559,21 @@ namespace BL.Maintenance
                         int rowsaffected = cmd.ExecuteNonQuery();
                     }
 
+                    if (confirmedInfo.IsConfirmed)
+                    {
+                        ML.Result resultGetTope = GetTope(confirmedInfo.FecEnt, "L", mode);
+                        if (!resultGetTope.Correct)
+                        {
+                            throw resultGetTope.Ex;
+                        }
+
+                        var (ok, mensaje) = ((bool, string))result.Object;
+                        if (!ok)
+                        {
+                            throw new Exception($"{mensaje}");
+                        }
+                    }
+
                     if (confirmedInfo.IsRdd)
                     {
                         UpdateOraIntegraEnvio(connection, confirmedInfo.NumScn);
@@ -929,8 +945,8 @@ namespace BL.Maintenance
                                     AND B.estado IN ('I','P')
                                     AND B.num_scn NOT IN (SELECT num_scn FROM ora_excluye)
                                     AND B.num_scn NOT IN (SELECT num_scn FROM ora_ruta WHERE estatus IN (0,2))
-                                    AND B.num_scn NOT IN (SELECt num_scn FROM ora_confirmacion WHERE cod_emp = 1 AND estatus = 0 AND fec_ent >= TODAY)
-                                    AND B.num_scn NOT IN (SELECt num_scn FROM ora_drouting WHERE cod_emp = 1 AND fec_ent >= TODAY)
+                                    AND B.num_scn NOT IN (SELECT num_scn FROM ora_confirmacion WHERE cod_emp = 1 AND estatus = 0 AND fec_ent >= TODAY)
+                                    AND B.num_scn NOT IN (SELECT num_scn FROM ora_drouting WHERE cod_emp = 1 AND fec_ent >= TODAY)
                                     AND C.cod_emp = A.cod_emp
                                     AND C.cod_pto = A.cod_pto
                                     AND C.num_edc = A.num_edc

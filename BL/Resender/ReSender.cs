@@ -1,6 +1,8 @@
 ﻿using DocumentFormat.OpenXml.Office.Word;
 using DocumentFormat.OpenXml.Spreadsheet;
+using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.Data.SqlClient;
+using ML;
 using System;
 using System.Collections.Generic;
 using System.Data.Odbc;
@@ -100,7 +102,277 @@ namespace BL.Resender
             }
             return result;
         }
+        //--------------------------------------------------------------------------
+        public static string Init57(string dig)
+        {
+            string mode = "PRO";
+
+            List<string> list = dig.Split(',').ToList();
+
+            string response = string.Empty;
+
+            foreach (string oc in list)
+            {
+                Result resultResend = Resend57(oc, mode);
+                if (resultResend.Correct)
+                {
+                    response += (string)resultResend.Object;
+                }
+            }
+
+            return response;
+        }
+        private static Result Resend57(string oc, string mode)
+        {
+            Result result = new Result();
+            try
+            {
+                using (SqlConnection connection = new SqlConnection())
+                {
+                    connection.ConnectionString = DL.Connection.GetConnectionStringSig(mode);
+                    connection.Open();
+
+                    Result resultExist = Exist57(connection, oc);
+                    if (!resultExist.Correct)
+                    {
+                        throw new Exception($@"{resultExist.Message}");
+                    }
+                    (bool exist, string fec) data = ((bool exist, string fec))resultExist.Object;
+
+                    if (data.exist)
+                    {
+                        Result resultUpdte = Update57(connection, oc);
+                        if (!resultUpdte.Correct)
+                        {
+                            throw new Exception($@"{resultUpdte.Message}");
+                        }
+                        result.Object = $"{resultUpdte.Message} Ultima hora {data.fec}\n";
+                    }
+                    else
+                    {
+                        result.Object = $"La oc {oc} no tiene un cartonizado en estatus de envio\n";
+                    }
+
+                    result.Correct = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                Console.WriteLine(ex.Message);
+            }
+            return result;
+        }
+        private static Result Exist57(SqlConnection connection, string oc)
+        {
+            Result result = new Result();
+            try
+            {
+                string fec = string.Empty;
+                bool exist = false;
+                string query = $@"SELECT fecha_env
+                                FROM sag_pre_recibo_ilpn
+                                WHERE cod_emp = 1
+                                AND estatus = 3
+                                AND num_ped = '{oc}'
+                                GROUP BY fecha_env";
+
+                using (SqlCommand cmd = new SqlCommand(query, connection))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            fec = reader.GetDateTime(0).ToString();
+                            exist = true;
+                        }
+                    }
+                }
+
+                result.Correct = true;
+                result.Object = (exist, fec);
+            }
+            catch (Exception e)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al consultar oc {oc}";
+            }
+            return result;
+        }
+        private static Result Update57(SqlConnection connection, string oc)
+        {
+            Result result = new Result();
+            try
+            {
+                string query = $@"UPDATE sag_pre_recibo_ilpn
+                                SET estatus = 5
+                                WHERE cod_emp = 1
+                                AND estatus = 3
+                                AND num_ped = '{oc}'";
+
+                using (SqlCommand cmd = new SqlCommand(query, connection))
+                {
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    if (rowsAffected < 1)
+                    {
+                        throw new Exception($@"No se actualizó ninguna fila ({rowsAffected}) rows Affected");
+                    }
+                    result.Correct = true;
+                    result.Message = $@"{oc} Se actualizaron {rowsAffected} columnas.";
+                }
+            }
+            catch (Exception e)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al actuaizar oc {oc} {e.Message}";
+            }
+            return result;
+        }
+        //--------------------------------------------------------------------------
+        public static string Init13(string dig)
+        {
+            string mode = "PRO";
+
+            List<string> list = dig.Split(',').ToList();
+
+            string response = string.Empty;
+
+            foreach (string oc in list)
+            {
+                Result resultResend = Resend13(oc, mode);
+                if (resultResend.Correct)
+                {
+                    response += (string)resultResend.Object;
+                }
+            }
+
+            return response;
+        }
+        private static Result Resend13(string oc, string mode)
+        {
+            Result result = new Result();
+            try
+            {
+                using (SqlConnection connection = new SqlConnection())
+                {
+                    connection.ConnectionString = DL.Connection.GetConnectionStringSig(mode);
+                    connection.Open();
+
+                    Result resultExist = Exist(connection, oc);
+                    if (!resultExist.Correct)
+                    {
+                        throw new Exception($@"{resultExist.Message}");
+                    }
+                    (bool exist, bool apta, DateTime fec) data = ((bool exist, bool apta, DateTime fec))resultExist.Object;
+
+                    if (data.exist)
+                    {
+                        if (data.apta)
+                        {
+                            Result resultUpdte = Update13(connection, oc, data.fec);
+                            if (!resultUpdte.Correct)
+                            {
+                                throw new Exception($@"{resultUpdte.Message}");
+                            }
+                            result.Object = $@"{resultUpdte.Message}";
+                        }
+                        else
+                        {
+                            result.Object = $"La oc {oc} tiene cartonización, pero no hay transferencias validas hasta el momento";
+                        }
+                    }
+                    else
+                    {
+                        result.Object = $"La oc {oc} no se ha cartonizado aun";
+                    }
+
+                    result.Correct = true;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                Console.WriteLine(ex.Message);
+            }
+            return result;
+        }
+        private static Result Exist(SqlConnection connection, string oc)
+        {
+            Result result = new Result();
+            try
+            {
+                bool apta = false;
+                bool exist = false;
+                DateTime fec = new DateTime();
+                string query = $@"SELECT Estatus, Fecha_Hora
+                                    FROM sag_pre_recibo_envio
+                                    WHERE cod_emp = 1
+                                    AND num_ped = '{oc}'
+                                    GROUP BY Estatus, Fecha_Hora";
+
+                using (SqlCommand cmd = new SqlCommand(query, connection))
+                {
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            apta = reader.GetByte(0) == 0 ? false : true;
+                            fec = reader.GetDateTime(1);
+
+                            exist = true;
+
+                            if (apta)
+                            {
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                result.Correct = true;
+                result.Object = (exist, apta, fec);
+            }
+            catch (Exception e)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al consultar oc {oc}";
+            }
+            return result;
+        }
+        private static Result Update13(SqlConnection connection, string oc, DateTime fec)
+        {
+            Result result = new Result();
+            try
+            {
+
+                string query = $@"UPDATE sag_pre_recibo_envio
+	                                        SET Estatus = 0
+                                        WHERE Estatus = 1
+                                        AND num_ped = @NumPed
+                                        AND Fecha_Hora = @FechaHora";
 
 
+                using (SqlCommand cmd = new SqlCommand(query, connection))
+                {
+                    cmd.Parameters.AddWithValue("@NumPed", oc);
+                    cmd.Parameters.AddWithValue("@FechaHora", fec);
+
+
+                    int rowsAffected = cmd.ExecuteNonQuery();
+                    if (rowsAffected < 1)
+                    {
+                        throw new Exception($@"No se actualizó ninguna fila ({rowsAffected}) rows Affected");
+                    }
+                    result.Correct = true;
+                    result.Message = $@"{oc} se actualizaron {rowsAffected} columnas.";
+                }
+            }
+            catch (Exception e)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al actuaizar oc {oc} {e.Message}";
+            }
+            return result;
+        }
     }
 }

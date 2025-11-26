@@ -50,11 +50,11 @@ namespace DL
         }
         protected static string? GetConSigPro(string mode)
         {
-            return Environment.GetEnvironmentVariable("CON_SIG_PRO");
+            return Environment.GetEnvironmentVariable("CON_SIG_PRO2");
         }
         protected static string? GetConSigDev(string mode)
         {
-            return Environment.GetEnvironmentVariable("CON_SIG_PRO");
+            return Environment.GetEnvironmentVariable("CON_SIG_PRO2");
         }
     }
 }

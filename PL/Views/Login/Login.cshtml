@@ -94,3 +94,109 @@
         </div>
     </div>
 </div>
+
+@section Scripts {
+    <script>
+        $(document).ready(function() {
+            $('#btnResetPassword').on('click', function() {
+                $('#reset_rfc_ope').val('');
+                $('#reset_new_password').val('');
+                $('#reset_confirm_password').val('');
+                
+                const modal = new bootstrap.Modal(document.getElementById('modalResetPassword'));
+                modal.show();
+            });
+
+            $('#btnConfirmResetPassword').on('click', function() {
+                const rfcOpe = $('#reset_rfc_ope').val();
+                const newPassword = $('#reset_new_password').val();
+                const confirmPassword = $('#reset_confirm_password').val();
+
+                if (!rfcOpe || rfcOpe.trim() === '') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'Ingrese el RFC del operador'
+                    });
+                    return;
+                }
+
+                if (!newPassword || newPassword.trim() === '') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'Ingrese la nueva contraseña'
+                    });
+                    return;
+                }
+
+                if (newPassword !== confirmPassword) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'Las contraseñas no coinciden'
+                    });
+                    return;
+                }
+
+                if (newPassword.length > 16) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'La contraseña no puede tener más de 16 caracteres'
+                    });
+                    return;
+                }
+
+                const btn = $(this);
+                btn.prop('disabled', true);
+                btn.html('<span class="spinner-border spinner-border-sm" role="status"></span> Procesando...');
+
+                $.ajax({
+                    url: '@Url.Action("ResetPassword", "Login")',
+                    type: 'POST',
+                    data: {
+                        codEmp: 1,
+                        rfcOpe: rfcOpe.trim(),
+                        newPassword: newPassword.trim()
+                    },
+                    success: function(response) {
+                        if (response.success) {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('modalResetPassword'));
+                            if (modal) modal.hide();
+                            $('#reset_rfc_ope').val('');
+                            $('#reset_new_password').val('');
+                            $('#reset_confirm_password').val('');
+                            btn.prop('disabled', false);
+                            btn.html('<i class="bi bi-check-circle"></i> Reestablecer');
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Éxito',
+                                text: response.message || 'Contraseña reestablecida correctamente',
+                                timer: 2000,
+                                showConfirmButton: false
+                            });
+                        } else {
+                            Swal.fire({
+                                icon: 'error',
+                                title: 'Error',
+                                text: response.message || 'Error al reestablecer la contraseña'
+                            });
+                        }
+                        btn.prop('disabled', false);
+                        btn.html('<i class="bi bi-check-circle"></i> Reestablecer');
+                    },
+                    error: function() {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error al comunicarse con el servidor'
+                        });
+                        btn.prop('disabled', false);
+                        btn.html('<i class="bi bi-check-circle"></i> Reestablecer');
+                    }
+                });
+            });
+        });
+    </script>
+}

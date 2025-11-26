@@ -19,13 +19,16 @@ namespace BL.Login
                     throw new Exception($@"Usuario o contraseña vacios");
                 }
 
-                ML.Result resultValidateUser = ValidateUser(login.usu_id, mode);
+                ML.Result resultValidateUser = ValidateAccount(login.usu_id, mode);
                 if (!resultValidateUser.Correct)
                 {
                     throw new Exception(resultValidateUser.Message, resultValidateUser.Ex);
                 }
 
-                ML.Result resultValidatePassword = ValidatePassword(login.usu_id, login.usu_pass, mode);
+                // Obtener la bandera del tipo de usuario (LGA o OPE)
+                bool isLGA = resultValidateUser.Object is bool flag ? flag : true; // Por defecto LGA si no se especifica
+
+                ML.Result resultValidatePassword = ValidatePassword(login.usu_id, login.usu_pass, mode, isLGA);
                 if (!resultValidatePassword.Correct)
                 {
                     throw new Exception(resultValidatePassword.Message, resultValidatePassword.Ex);
@@ -43,7 +46,7 @@ namespace BL.Login
             }
             return result;
         }
-        private static ML.Result ValidateUser(string userid, string mode)
+        private static ML.Result ValidateUserLGA(string userid, string mode)
         {
             ML.Result result = new ML.Result();
             try
@@ -83,8 +86,111 @@ namespace BL.Login
                 result.Ex = ex;
             }
             return result;
+        }
+
+        private static ML.Result ValidateUserOPE(string userid, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                string devMode = "DEV";
+                
+                string query = $@"SELECT rfc_ope
+                                FROM ora_operadores
+                                WHERE rfc_ope = ?
+                                AND active = '1'";
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(devMode)))
+                {
+                    connection.Open();
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("rfc_ope", userid);
+
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                result.Correct = true;
+                            }
+                            else
+                            {
+                                throw new Exception($@"No se encontró el operador dado de alta o está inactivo");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"{ex.Message}";
+                result.Ex = ex;
+            }
+            return result;
+        }
+
+        private static ML.Result ValidateAccount(string userid, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                // Verificar si el usuario es 100% numérico
+                bool isNumeric = !string.IsNullOrEmpty(userid) && userid.All(char.IsDigit);
+                bool isLGA = isNumeric; // true para LGA, false para OPE
+
+                if (isNumeric)
+                {
+                    // Usuario numérico: usar ValidateUserLGA
+                    result = ValidateUserLGA(userid, mode);
+                }
+                else
+                {
+                    // Usuario no numérico: usar ValidateUserOPE (operadores)
+                    result = ValidateUserOPE(userid, mode);
+                }
+
+                // Guardar la bandera en result.Object para que Log la pueda usar
+                if (result.Correct)
+                {
+                    result.Object = isLGA;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"{ex.Message}";
+                result.Ex = ex;
+            }
+            return result;
         } 
-        private static ML.Result ValidatePassword(string userid, string password, string mode)
+        private static ML.Result ValidatePassword(string userid, string password, string mode, bool isLGA)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                if (isLGA)
+                {
+                    // Usuario numérico: validar contra LGA
+                    result = ValidatePasswordLGA(userid, password, mode);
+                }
+                else
+                {
+                    // Usuario no numérico: validar contra OPE (operadores)
+                    result = ValidatePasswordOPE(userid, password, mode);
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al iniciar sesion {ex.Message}";
+                result.Ex = ex;
+            }
+            return result;
+        }
+
+        private static ML.Result ValidatePasswordLGA(string userid, string password, string mode)
         {
             ML.Result result = new ML.Result();
             try
@@ -125,6 +231,69 @@ namespace BL.Login
                                 {
                                     result.Message = $@"Usuario o contraseña incorrecta";
                                 }
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al iniciar sesion {ex.Message}";
+                result.Ex = ex;
+            }
+            return result;
+        }
+
+        private static ML.Result ValidatePasswordOPE(string userid, string password, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                string devMode = "DEV";
+                
+                string query = $@"SELECT TRIM(password), TRIM(nom_ope)
+                                FROM ora_operadores
+                                WHERE rfc_ope = ?
+                                AND active = '1'";
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(devMode)))
+                {
+                    connection.Open();
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        cmd.Parameters.AddWithValue("rfc_ope", userid);
+
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                string dbPassword = reader.IsDBNull(0) ? "" : reader.GetString(0);
+                                bool match = dbPassword == password;
+                                
+                                if (match)  
+                                {
+                                    ML.Login.Login logged = new ML.Login.Login();
+
+                                    logged.usu_id = userid;
+                                    logged.cv_area = "OPE"; // Área para operadores
+                                    logged.usu_nombre = reader.IsDBNull(1) ? "" : reader.GetString(1);
+                                    logged.sub_rol = "OPE"; // Rol para operadores
+                                    logged.nombre = logged.usu_nombre.Split(' ')[0];
+                                    logged.pto_alm = "870"; // Punto de almacén por defecto para operadores
+
+                                    result.Correct = true;
+                                    result.Object = logged;
+                                }
+                                else
+                                {
+                                    result.Message = $@"Usuario o contraseña incorrecta";
+                                }
+                            }
+                            else
+                            {
+                                result.Message = $@"Usuario o contraseña incorrecta";
                             }
                         }
                     }

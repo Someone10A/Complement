@@ -1,0 +1,69 @@
+﻿@{
+    ViewData["Title"] = "ReSender";
+}
+
+<div class="container-fluid mt-3 px-2">
+    <h2 class="mb-4 text-primary fw-bold d-flex align-items-center">
+        <i class="bi bi-arrow-clockwise me-2"></i> ReSender
+    </h2>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8 col-sm-12">
+            <div class="card p-3 shadow-sm">
+                <form id="resenderForm">
+                    <div class="mb-3">
+                        <label for="digInput" class="form-label fw-bold">Ordenes de compra separadas por ","</label>
+                        <input type="text" class="form-control" id="digInput" name="dig" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="typeSelect" class="form-label fw-bold">Tipo</label>
+                        <select class="form-select" id="typeSelect" name="type" required>
+                            <option value="57">ASN (57b)</option>
+                            <option value="13">Orden (13b)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">Enviar</button>
+                </form>
+            </div>
+
+            <div class="card mt-3 p-3 shadow-sm" id="responseContainer" style="white-space: pre-wrap; display:none;">
+                <h5 class="fw-bold text-secondary">Respuesta:</h5>
+                <div id="responseText" class="text-dark"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.getElementById('resenderForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const dig = document.getElementById('digInput').value.trim();
+            const type = document.getElementById('typeSelect').value;
+            const url = type === '57' ? '/ReSender/Init57' : '/ReSender/Init13';
+
+            const responseContainer = document.getElementById('responseContainer');
+            const responseText = document.getElementById('responseText');
+            responseText.textContent = "Cargando...";
+            responseContainer.style.display = 'block';
+
+            try {
+                const res = await fetch(url, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ dig })
+                });
+
+                if (!res.ok) throw new Error('Error en la petición');
+
+                const data = await res.json();
+                responseText.textContent = data; // preserva saltos de línea
+            } catch (err) {
+                responseText.textContent = 'Error: ' + err.message;
+            }
+        });
+    </script>
+}

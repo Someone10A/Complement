@@ -22,24 +22,25 @@
         {
             string description = item.Title switch
             {
-                "Home" => "Menú principal",
+                "Home" => "Menú principal. Visualiza todas las opciones",
                 "Privacy" => "Configuraciones y seguridad",
                 "Ordenes" => "Gestión de órdenes de compra",
                 "Consulta Hija" => "Consulta de relaciones hijas",
                 "MatchGTM-LGA" => "Match de piezas a detalle entre Declaratoria y LGA",
-                "Rutas" => "Visualiza las rutas enviadas de entrega por día",
+                "Rutas" => "Rutas enviadas de entrega por día de WMS",
                 "Busqueda" => "Búsqueda avanzada de registros de envíos",
-                "MatcxDia" => "Coincidencias por día",
-                "MatchxRango" => "Coincidencias por rango de fechas",
+                "MatcxDia" => "Coincidencias por día entre LGA y WMS",
+                "MatchxRango" => "Coincidencias por rango de fechas LGA y WMS",
                 "Regresos" => "Regresos de ruta pendientes por recibir",
                 "BaseControl" => "Control y registro de entregas",
                 "BaseControlOTM" => "Control y registro de entregas con OTM",
                 "Mantenimiento" => "Mantenimiento a la entrega 1-1",
-                "Pendientes Confirmacion" => "Sales Check pendientes de dar mantenimiento",
+                "Pend. Confirmacion" => "Sales Check pendientes de dar mantenimiento",
                 "Carta Porte" => "Generación de carta porte para embarques",
                 "Ordenes Listas"=>"Ordenes listas para mandar a planeación",
                 "Planeacion" => "Planeacion de ordenes entrega BT 1-1",
                 "Operadores" => "Consultar operadores",
+                "ReSender" => "Reenvio de ASN y Orden cabecera por # de orden",
                 _ => ""
             };
 

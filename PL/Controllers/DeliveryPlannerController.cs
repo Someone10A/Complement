@@ -68,7 +68,6 @@ namespace PL.Controllers
             return View("Planning");
         }
 
-
         [HttpPost]
         public IActionResult GetOrdersPerDate([FromBody] ML.DeliveryPlanner.PlanQuery planQuery)
         {
@@ -88,6 +87,20 @@ namespace PL.Controllers
             planInfoList = (List<ML.DeliveryPlanner.PlanInfo>)result.Object;
 
             return Json(planInfoList);
+        }
+
+        [HttpPost]
+        public IActionResult SendToRoute([FromBody] PlanSchema planSchema)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            ML.Result result = BL.DeliveryPlanner.DeliveryPlanner.ChangeInRoute(planSchema, mode);
+
+            return Json(result);
         }
     }
 }

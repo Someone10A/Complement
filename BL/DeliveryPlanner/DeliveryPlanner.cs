@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using ML.DeliveryPlanner;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -8,6 +9,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Transactions;
 
 namespace BL.DeliveryPlanner
 {
@@ -241,6 +243,7 @@ namespace BL.DeliveryPlanner
                         {
                             try
                             {
+                                //Console.WriteLine($"{readyInfo.NumScn} inicia");
                                 ML.Result resultUpdateConfirma = UpdateConfirma(connection, transaction, readyInfo);
                                 if (!resultUpdateConfirma.Correct)
                                 {
@@ -398,7 +401,17 @@ namespace BL.DeliveryPlanner
                                                     B.cod_pto||B.num_edc||'000'
                                             ELSE
                                                     B.cod_pto||B.num_edc||LPAD(TO_CHAR(E.intentos),3,'0')
-                                            END AS ord_rel,A.div_ent,
+                                            END AS ord_rel,
+                                            CASE 
+                                                WHEN (B.estado = 'G') THEN 'Generado'
+                                                WHEN (B.estado = 'I') THEN 'Impreso'
+                                                WHEN (B.estado = 'P') THEN 'Transito-Retenido'
+                                                WHEN (B.estado = 'X') THEN 'Cancelado'
+                                                WHEN (B.estado = 'C') THEN 'PreCancelado'
+                                                WHEN (B.estado = 'D') THEN 'Devuelto'
+                                                WHEN (B.estado = 'N') THEN 'Devueltos'
+                                            ELSE 'Estatus no clasificado '||B.estado END AS gnx_est,
+                                            A.div_ent,
                                             TRIM(C.pro_cli) edo_cli,
                                             TRIM(C.pob_cli) mun_cli,TRIM(D.sector) AS sector,C.cp_cli,
                                             TRIM(C.col_cli) as col_cli,
@@ -449,17 +462,18 @@ namespace BL.DeliveryPlanner
                                 planInfo.CodPto = reader.GetString(2);
                                 planInfo.NumScn = reader.GetString(3);
                                 planInfo.OrdRel = reader.GetString(4);
-                                planInfo.Division = reader.GetString(5);
-                                planInfo.EdoCli = reader.GetString(6);
-                                planInfo.MunCli = reader.GetString(7);
-                                planInfo.Sector = reader.GetString(8);
-                                planInfo.CpCli = reader.GetString(9);
-                                planInfo.ColCli = reader.GetString(10);
-                                planInfo.NomCli = reader.GetString(11);
-                                planInfo.Panel = reader.GetString(12);
-                                planInfo.Volado = reader.GetString(13);
-                                planInfo.MasGen = reader.GetString(14);
-                                planInfo.FecEnt = reader.GetDateTime(15).ToString("ddMMyyyy");
+                                planInfo.GnxEst = reader.GetString(5);
+                                planInfo.Division = reader.GetString(6);
+                                planInfo.EdoCli = reader.GetString(7);
+                                planInfo.MunCli = reader.GetString(8);
+                                planInfo.Sector = reader.GetString(9);
+                                planInfo.CpCli = reader.GetString(10);
+                                planInfo.ColCli = reader.GetString(11);
+                                planInfo.NomCli = reader.GetString(12);
+                                planInfo.Panel = reader.GetString(13);
+                                planInfo.Volado = reader.GetString(14);
+                                planInfo.MasGen = reader.GetString(15);
+                                planInfo.FecEnt = reader.GetDateTime(16).ToString("ddMMyyyy");
 
                                 planInfoList.Add(planInfo); 
                             }
@@ -486,7 +500,613 @@ namespace BL.DeliveryPlanner
             }
             return result;
         }
+        /*Cambia de listo para asignar  a PreAsignado*/
+        public static ML.Result ChangeInRoute(PlanSchema planSchema, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                string tipEnt = planSchema.planInfoList.First().TipEnt;
+                string ptoAlm = planSchema.planInfoList.First().PtoAlm;
+                string fecEnt = planSchema.planInfoList.First().FecEnt;
+                int scnCan = planSchema.planInfoList.Count;
+                string idUni = DateTime.Now.ToString("yyyyMMddHHmm");
+
+                string allOrd = string.Join(",",
+                    planSchema.planInfoList.Select(x => $"'{x.OrdRel}'"));
+
+                string queryIsolation = $@"SET ISOLATION TO DIRTY READ;";
+                string queryInsert = $"INSERT INTO ora_crouting VALUES(1,{ptoAlm},0,'{fecEnt}','{tipEnt}','{idUni}',{scnCan},{planSchema.routes})";
+                string queryUpdate = $@"UPDATE
+                                             ora_drouting
+                                        SET estatus = 2,
+                                             pre_fol = '{idUni}'
+                                        WHERE cod_emp = 1
+                                        AND estatus = 0
+                                        AND pto_alm = {ptoAlm}
+                                        AND tip_ent = '{tipEnt}'
+                                        AND fec_ent = '{fecEnt}'
+                                        AND ord_rel IN ({allOrd})
+                                        ";
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    using (OdbcTransaction transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            using (OdbcCommand cmd = new OdbcCommand(queryIsolation, connection, transaction))
+                            {
+                                int execute = cmd.ExecuteNonQuery();
+                            }
+
+                            using (OdbcCommand cmd = new OdbcCommand(queryUpdate, connection, transaction))
+                            {
+                                int rowsAffected = cmd.ExecuteNonQuery();
+                                if (rowsAffected < 1)
+                                {
+                                    throw new Exception($@"No se actualizaron los registros");
+                                }
+                            }
+
+                            using (OdbcCommand cmd = new OdbcCommand(queryInsert, connection, transaction))
+                            {
+                                int rowsAffected = cmd.ExecuteNonQuery();
+                                if (rowsAffected < 1)
+                                {
+                                    throw new Exception($@"No se inserto el seguimiento");
+                                }
+                            }
+
+                            result.Correct = true;
+                            result.Object = idUni;
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"{ex.Message}";
+            }
+            return result;
+        }
+        /*Obtener las cosas para asignar*/
+        public static ML.Result GetSchemas(string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+            return result;
+        }
+
+        /*Cambia de PreAsignado a asignado*/
+        public static ML.Result CreateRouting(ML.DeliveryPlanner.Schema schema, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                ML.Result resultGetSchemaRoute = GetSchemaRoute(schema, mode);
+                if (!resultGetSchemaRoute.Correct)
+                {
+                    throw new Exception($@"{resultGetSchemaRoute.Message}");
+                }
+                ML.DeliveryPlanner.RouteSchema routeSchema = (ML.DeliveryPlanner.RouteSchema)resultGetSchemaRoute.Object;
+
+                List<List<RouteLines>> routesGenerated = GenerateRoutes(routeSchema, mode);
+
+                ML.Result resultAssignRoutes = AssignRoutes(routesGenerated, mode);
+                if (!resultAssignRoutes.Correct)
+                {
+                    throw new Exception($@"{resultAssignRoutes.Message}");
+                }
+
+                result.Correct = true;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al crear ruta: {ex.Message}";
+            }
+            return result;
+        }
+        private static ML.Result GetSchemaRoute(ML.DeliveryPlanner.Schema schema, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                ML.DeliveryPlanner.RouteSchema routeSchema = new ML.DeliveryPlanner.RouteSchema();
+                routeSchema.ptoAlm = schema.ptoAlm;
+                routeSchema.tipEnt = schema.tipEnt;
+                routeSchema.preFol = schema.preFol;
+                routeSchema.routeCount = int.Parse(schema.routeCount);
+                routeSchema.Orders = new List<ML.DeliveryPlanner.RouteLines>();
+
+                string queryIsolation = $@"SET ISOLATION TO DIRTY READ;";
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    using (OdbcCommand cmd = new OdbcCommand(queryIsolation, connection))
+                    {
+                        int execute = cmd.ExecuteNonQuery();
+                    }
+
+                    string queryGetScn = $@"SELECT A.pre_fol,A.pto_alm,A.num_scn,TRIM(A.ord_rel) AS ord_rel,
+                                                A.fec_ent,A.tip_ent,A.div_ent,
+                                                TRIM(Z.des_fam) AS des_fam,
+                                                TRIM(C.pro_cli) AS edo_cli,
+                                                TRIM(C.pob_cli) AS mun_cli,
+                                                TRIM(D.sector) AS sector,
+                                                C.cp_cli AS cod_pos,
+                                                TRIM(C.col_cli) as col_cli,
+                                                CASE WHEN (C.panel = 'N') THEN 'NO' ELSE 'SI' END AS panel,
+                                                CASE WHEN (C.volado = 'N') THEN 'NO' ELSE 'SI' END AS volado,
+                                                CASE WHEN (C.mas_gen = 'N') THEN 'NO' ELSE 'SI' END AS mas_gen,
+                                                F.longitud,F.latitud
+                                        FROM ora_drouting A, famil Z, edc_cab B,cli_direccion C, ora_sectores D,
+                                                cli_coord F
+                                        WHERE A.cod_emp = 1
+                                        AND A.estatus = 0
+                                        AND A.pto_alm = {routeSchema.ptoAlm}
+                                        AND A.pre_fol = '{routeSchema.preFol}'
+                                        AND A.tip_ent = '{routeSchema.tipEnt}'
+                                        AND Z.cod_fam2 = A.div_ent
+                                        AND Z.cod_fam3 = ' '
+                                        AND Z.cod_fam4 = ' '
+                                        AND Z.cod_fam5 = ' '
+                                        AND B.cod_emp = A.cod_emp
+                                        AND B.pto_alm = A.pto_alm
+                                        AND B.num_scn = A.num_scn
+                                        AND C.cod_emp = B.cod_emp
+                                        AND C.cod_dir = B.cod_dir
+                                        AND D.cod_emp = A.cod_emp
+                                        AND D.pto_alm = A.pto_alm
+                                        AND D.cod_postal = C.cp_cli
+                                        AND F.cod_emp = B.cod_emp
+                                        AND F.cod_cli = B.cod_cli
+                                        ORDER BY 8,9,10,11,12,6,13,14,15";
+
+                    using (OdbcCommand cmd = new OdbcCommand(queryGetScn, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                ML.DeliveryPlanner.RouteLines order = new ML.DeliveryPlanner.RouteLines();
+
+                                order.PreFol = reader.GetString(0);
+                                order.PtoAlm = reader.GetString(1);
+                                order.NumScn = reader.GetString(2);
+                                order.OrdRel = reader.GetString(3);
+                                order.FecEnt = reader.GetString(4);
+                                order.TipEnt = reader.GetString(5);
+                                order.DivEnt = reader.GetString(6);
+                                order.DesFam = reader.GetString(7);
+                                order.EdoCli = reader.GetString(8);
+                                order.MunCli = reader.GetString(9);
+                                order.Sector = reader.GetString(10);
+                                order.CodPos = reader.GetString(11);
+                                order.ColCli = reader.GetString(12);
+                                order.Panel = reader.GetString(13);
+                                order.Volado = reader.GetString(14);
+                                order.MasGen = reader.GetString(15);
+                                order.Longitud = reader.GetString(16);
+                                order.Latitud = reader.GetString(17);
+
+                                routeSchema.Orders.Add(order);
+                            }
+                        }
+                    }
+                }
+                result.Correct = true;
+                result.Object = routeSchema;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al obtener los datos de ruta {ex.Message}";
+            }
+            return result;
+        }
+        private static List<List<RouteLines>> GenerateRoutes(RouteSchema routeSchema, string mode)
+        {
+            // Prioridad de agrupamiento (editable)
+            Func<RouteLines, object>[] priority =
+            {
+                o => o.Sector,
+                o => o.CodPos,
+                o => o.ColCli,
+                o => o.Panel,
+                o => o.Volado,
+                o => o.MasGen,
+                o => o.DivEnt
+            };
+
+            var orders = routeSchema.Orders.ToList();
+
+            // 1. Ordenar según prioridades
+            IOrderedEnumerable<RouteLines> ordered = orders.OrderBy(priority[0]);
+            for (int i = 1; i < priority.Length; i++)
+                ordered = ordered.ThenBy(priority[i]);
+
+            var sortedOrders = ordered.ToList();
+
+            int totalRoutes = routeSchema.routeCount;
+            int target = routeSchema.targetOrdersPerRoute;
+
+            List<List<RouteLines>> routes = new List<List<RouteLines>>(totalRoutes);
+
+            // 2. Crear lista vacía por cada ruta
+            for (int r = 0; r < totalRoutes; r++)
+                routes.Add(new List<RouteLines>());
+
+            // 3. Distribución de órdenes respetando límites
+            int index = 0;
+
+            for (int r = 0; r < totalRoutes; r++)
+            {
+                int remainingOrders = sortedOrders.Count - index;
+                int remainingRoutes = totalRoutes - r;
+
+                // Cantidad que debe quedar fuera para cumplir mínimos en las siguientes rutas
+                int expectedRemaining = remainingOrders - ((remainingRoutes - 1) * routeSchema.minOrdersPerRoute);
+                if (expectedRemaining < 0)
+                    expectedRemaining = 0;
+
+                // Cantidad a tomar para esta ruta
+                int take = Math.Min(target, expectedRemaining);
+
+                if (take < routeSchema.minOrdersPerRoute)
+                    take = routeSchema.minOrdersPerRoute;
+
+                if (take > routeSchema.maxOrdersPerRoute)
+                    take = routeSchema.maxOrdersPerRoute;
+
+                // Última ruta: tomar todo lo que quede
+                if (r == totalRoutes - 1)
+                    take = remainingOrders;
+
+                routes[r].AddRange(sortedOrders.Skip(index).Take(take));
+                index += take;
+            }
+
+            // 4. Asignar preFol nuevo por ruta
+            foreach (var route in routes)
+            {
+                if (route.Count == 0)
+                    continue;
+
+                string originalPreFol = route[0].PreFol;
+                string fecEnt = route[0].FecEnt;
+
+                string consecutivo = GetConsecutivo(fecEnt, mode);
+                string newPreFol = $"{originalPreFol}-{consecutivo}";
+
+                foreach (var order in route)
+                    order.PreFol = newPreFol;
+            }
+
+            return routes;
+        }
+        private static ML.Result AssignRoutes(List<List<RouteLines>> listRoutes, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                string queryIsolation = $@"SET ISOLATION TO DIRTY READ;";
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+                    using (OdbcTransaction transaction = connection.BeginTransaction())
+                    {
+                        try
+                        {
+                            using (OdbcCommand cmd = new OdbcCommand(queryIsolation, connection, transaction))
+                            {
+                                int rowsAffected = cmd.ExecuteNonQuery();
+                            }
+
+                            foreach (List<RouteLines> route in listRoutes)
+                            {
+                                string preFol = route.First().PreFol;
+                                string ptoAlm = route.First().PreFol;
+                                string tipEnt = route.First().TipEnt;
+                                string allOrd = string.Join(",",
+                                            route.Select(x => $"'{x.OrdRel}'"));
+
+                                string queryInsert = $@"INSERT INTO ora_crouting(cod_emp,pto_alm,estatus,fec_gen,rut_typ,pre_fol)
+                                            	        VALUES (1,{ptoAlm},0,TODAY,'{tipEnt}','{preFol}');";
+
+                                string queryUpdate = $@"UPDATE ora_crouting
+                                                    SET estatus = 2
+                                                    WHERE cod_emp = 1
+                                                    AND pto_alm = {ptoAlm}
+                                                    AND pre_fol = '{preFol}'";
+                                /*ora_crouting.estatus*
+                                 * estatus 0 Aparado para asignación 
+                                 * estatus 1 Asignado
+                                 * estatus 2 PreAsignado
+                                 */
+
+                                string query = $@"UPDATE
+                                                 ora_drouting
+                                                SET pre_fol = '{preFol}',
+                                                    estatus = 3
+                                                WHERE cod_emp = 1
+                                                AND pto_alm = 870
+                                                AND estatus = 2
+                                                AND tip_ent = '{tipEnt}'
+                                                AND ord_rel IN ({allOrd})";
+                                /* ora_drouting.estatus
+                                 * estatus 0 default
+                                 * estatus 1 Asignado
+                                 * estatus 2 Apartado para asignación
+                                 * estatus 3 PreAsignado
+                                 */
+
+                                using (OdbcCommand cmd = new OdbcCommand(query, connection, transaction))
+                                {
+                                    int rowsAffected = cmd.ExecuteNonQuery();
+                                    if (rowsAffected < 1)
+                                    {
+                                        throw new Exception($@"No se actualizo ningun registro del detalle de ruta");
+                                    }
+                                }
+
+                                using (OdbcCommand cmd = new OdbcCommand(queryUpdate, connection, transaction))
+                                {
+                                    int rowsAffected = cmd.ExecuteNonQuery();
+                                    if (rowsAffected < 1)
+                                    {
+                                        throw new Exception($@"No se actualizo ningun registro del control de ruta");
+                                    }
+                                }
+
+                                using (OdbcCommand cmd = new OdbcCommand(queryInsert, connection, transaction))
+                                {
+                                    int rowsAffected = cmd.ExecuteNonQuery();
+                                    if (rowsAffected < 1)
+                                    {
+                                        throw new Exception($@"No inserto la cabecera de la ruta");
+                                    }
+                                }
+                            }
+
+                            result.Correct = true;
+                            transaction.Commit();
+                        }
+                        catch (Exception ex)
+                        {
+                            transaction.Rollback();
+                            throw;
+                        }
+                        
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+
+            }
+            return result;
+        }
+        private static string GetConsecutivo(string fecEnt, string mode) 
+        {
+            string con = string.Empty;
+            try
+            {
+                using(OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string queryTest = $@"SELECT COUNT(*)
+                                        FROM ora_routing_fol
+                                        WHERE cod_emp = 1
+                                        AND fec_fol = '{fecEnt}'";
+
+                    bool exist;
+
+                    using(OdbcCommand cmd = new OdbcCommand(queryTest, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                exist = reader.GetInt32(0) > 0 ? true : false;
+                            }
+                            else
+                            {
+                                throw new Exception($@"Error al leer folio");
+                            }
+                        }
+                    }
+
+                    if (exist)
+                    {
+
+                        string queryUpdate = $@"UPDATE ora_routing_fol
+                                                    SET counter = counter+1
+                                                    WHERE cod_emp = 1
+                                                    AND fec_fol = '{fecEnt}'";
+
+                        using (OdbcCommand cmd = new OdbcCommand(queryUpdate, connection))
+                        {
+                            int rowsAffected = cmd.ExecuteNonQuery();
+                            if (rowsAffected < 1)
+                            {
+                                throw new Exception($@"Error al leer folio");
+                            }
+                        }
+
+                        string queryGet = $@"SELECT counter
+                                        FROM ora_routing_fol
+                                        WHERE cod_emp = 1
+                                        AND fec_fol = '{fecEnt}'";
+
+                        using (OdbcCommand cmd = new OdbcCommand(queryGet, connection))
+                        {
+                            using (OdbcDataReader reader = cmd.ExecuteReader())
+                            {
+                                if (reader.Read())
+                                {
+                                    con = reader.GetInt32(0).ToString("D3");
+                                }
+                                else
+                                {
+                                    throw new Exception($@"Error al leer folio");
+                                }
+                            }
+                        }
+
+
+                    }
+                    else
+                    {
+                        string queryInsert = $@"INSERT INTO ora_routing_fol (cod_emp,fec_fol,counter) VALUES (1,'{fecEnt}',1)";
+
+                        using (OdbcCommand cmd = new OdbcCommand(queryInsert, connection))
+                        {
+                            int rowsAffected = cmd.ExecuteNonQuery();
+                            if(rowsAffected < 1)
+                            {
+                                throw new Exception($@"Error al leer folio");
+                            }
+                            con = "003";
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+
+                throw;
+            }
+            return con;
+        }
+        /**/
+        
         /*GetRoutesGenerated*/
+        private static ML.Result GetOrders(ML.DeliveryPlanner.Schema schema, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                ML.DeliveryPlanner.RouteSchema routeSchema = new ML.DeliveryPlanner.RouteSchema();
+                routeSchema.ptoAlm = schema.ptoAlm;
+                routeSchema.tipEnt = schema.tipEnt;
+                routeSchema.preFol = schema.preFol;
+                routeSchema.routeCount = int.Parse(schema.routeCount);
+                routeSchema.Orders = new List<ML.DeliveryPlanner.RouteLines>();
+
+                string queryIsolation = $@"SET ISOLATION TO DIRTY READ;";
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    using (OdbcCommand cmd = new OdbcCommand(queryIsolation, connection))
+                    {
+                        int execute = cmd.ExecuteNonQuery();
+                    }
+
+                    string queryGetScn = $@"SELECT A.pre_fol,A.pto_alm,A.num_scn,TRIM(A.ord_rel) AS ord_rel,
+                                                A.fec_ent,A.tip_ent,A.div_ent,
+                                                TRIM(Z.des_fam) AS des_fam,
+                                                TRIM(C.pro_cli) AS edo_cli,
+                                                TRIM(C.pob_cli) AS mun_cli,
+                                                TRIM(D.sector) AS sector,
+                                                C.cp_cli AS cod_pos,
+                                                TRIM(C.col_cli) as col_cli,
+                                                CASE WHEN (C.panel = 'N') THEN 'NO' ELSE 'SI' END AS panel,
+                                                CASE WHEN (C.volado = 'N') THEN 'NO' ELSE 'SI' END AS volado,
+                                                CASE WHEN (C.mas_gen = 'N') THEN 'NO' ELSE 'SI' END AS mas_gen,
+                                                F.longitud,F.latitud
+                                        FROM ora_drouting A, famil Z, edc_cab B,cli_direccion C, ora_sectores D,
+                                                cli_coord F
+                                        WHERE A.cod_emp = 1
+                                        AND A.estatus = 0
+                                        AND A.pto_alm = {routeSchema.ptoAlm}
+                                        AND A.pre_fol LIKE '{routeSchema.preFol}-%'
+                                        AND A.tip_ent = '{routeSchema.tipEnt}'
+                                        AND Z.cod_fam2 = A.div_ent
+                                        AND Z.cod_fam3 = ' '
+                                        AND Z.cod_fam4 = ' '
+                                        AND Z.cod_fam5 = ' '
+                                        AND B.cod_emp = A.cod_emp
+                                        AND B.pto_alm = A.pto_alm
+                                        AND B.num_scn = A.num_scn
+                                        AND C.cod_emp = B.cod_emp
+                                        AND C.cod_dir = B.cod_dir
+                                        AND D.cod_emp = A.cod_emp
+                                        AND D.pto_alm = A.pto_alm
+                                        AND D.cod_postal = C.cp_cli
+                                        AND F.cod_emp = B.cod_emp
+                                        AND F.cod_cli = B.cod_cli
+                                        ORDER BY A.pre_fol";
+
+                    using (OdbcCommand cmd = new OdbcCommand(queryGetScn, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                ML.DeliveryPlanner.RouteLines order = new ML.DeliveryPlanner.RouteLines();
+
+                                order.PreFol = reader.GetString(0);
+                                order.PtoAlm = reader.GetString(1);
+                                order.NumScn = reader.GetString(2);
+                                order.OrdRel = reader.GetString(3);
+                                order.FecEnt = reader.GetString(4);
+                                order.TipEnt = reader.GetString(5);
+                                order.DivEnt = reader.GetString(6);
+                                order.DesFam = reader.GetString(7);
+                                order.EdoCli = reader.GetString(8);
+                                order.MunCli = reader.GetString(9);
+                                order.Sector = reader.GetString(10);
+                                order.CodPos = reader.GetString(11);
+                                order.ColCli = reader.GetString(12);
+                                order.Panel = reader.GetString(13);
+                                order.Volado = reader.GetString(14);
+                                order.MasGen = reader.GetString(15);
+                                order.Longitud = reader.GetString(16);
+                                order.Latitud = reader.GetString(17);
+
+                                routeSchema.Orders.Add(order);
+                            }
+                        }
+                    }
+                }
+                result.Correct = true;
+                result.Object = routeSchema;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al obtener los datos de ruta {ex.Message}";
+            }
+            return result;
+        }
+
+        
         /**/
         /**/
         /**/

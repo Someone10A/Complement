@@ -38,7 +38,9 @@
         </div>
     </form>
 
-    <div id="SendContainer" class="mt-4"></div>
+    <div id="SendContainer" class="mt-4">
+
+    </div>
 
 </div>
 
@@ -64,6 +66,26 @@
     <button id="btnCancelAjax" class="btn btn-danger mt-3">Cancelar</button>
 </div>
 
+<div id="sendOverlay" style="
+    display:none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+">
+    <div class="spinner" style="
+        width: 60px;
+        height: 60px;
+        border: 8px solid #eee;
+        border-top: 8px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    "></div>
+</div>
 @section Styles {
     <style>
         @@keyframes spin {
@@ -77,7 +99,6 @@
         }
     </style>
 }
-
 @section Scripts {
     <script>
         let currentRequest = null;
@@ -85,6 +106,7 @@
         function showLoader() {
             $("#loadingOverlay").css("display", "flex");
         }
+
         function hideLoader() {
             $("#loadingOverlay").hide();
         }
@@ -96,6 +118,21 @@
             }
         });
 
+        function showSend() {
+            $("#sendOverlay").css("display", "flex");
+        }
+        function hideSend() {
+            $("#sendOverlay").hide();
+        }
+
+        function updateSelectedCount() {
+            const count = $('#tblReadyOrders tbody .chkIsReady:checked').length;
+            $('#selectedCount').text(`${count} registros seleccionados`);
+        }
+
+        $(document).on('change', '.chkIsReady', function () {
+            updateSelectedCount();
+        });
 
         $("#btnBuscar").click(function () {
 
@@ -127,26 +164,25 @@
                 contentType: "application/json",
                 data: JSON.stringify(data),
                 success: function (result) {
-
                     hideLoader();
-
                     $("#SendContainer").empty();
 
                     if (result.length === 0) {
-                        $("#SendContainer").html(`
-                            <div class="alert alert-warning text-center">
-                                No se encontraron resultados
-                            </div>
-                        `);
+                        $("#SendContainer").html(`<div class="alert alert-warning text-center">No se encontraron resultados</div>`);
                         return;
                     }
 
                     let html = `
-                        <div class="d-flex justify-content-end mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div id="selectedCount" class="fw-bold text-primary">
+                                0 registros seleccionados
+                            </div>
+
                             <button id="btnSendReady" class="btn btn-success">
                                 <i class="bi bi-send"></i> Enviar seleccionados
                             </button>
                         </div>
+
 
                         <table id="tblReadyOrders" class="table table-striped table-bordered">
                             <thead class="table-primary">
@@ -168,11 +204,7 @@
                     `;
 
                     $.each(result, function (i, item) {
-
-                        const isBlocked =
-                            (item.sector === "XXX" && item.tipEnt === "L") ||
-                            (item.wmsEst !== "Creado");
-
+                        const isBlocked = (item.sector === "XXX" && item.tipEnt === "L") || (item.wmsEst !== "Creado");
                         const rowClass = isBlocked ? "text-danger" : "";
                         const disabledAttr = isBlocked ? "disabled" : "";
 
@@ -192,8 +224,7 @@
                                 data-ordrel="${item.ordRel}"
                                 data-fecent="${item.fecEnt}">
                                 <td class="text-center">
-                                    <input type="checkbox" class="chkIsReady"
-                                        ${item.isReady ? 'checked' : ''} ${disabledAttr} />
+                                    <input type="checkbox" class="chkIsReady" ${item.isReady ? 'checked' : ''} ${disabledAttr} />
                                 </td>
                                 <td>${item.numScn}</td>
                                 <td>${item.ordRel}</td>
@@ -209,29 +240,27 @@
                         `;
                     });
 
-                    html += `
-                            </tbody>
-                        </table>
-                    `;
-
+                    html += `</tbody></table>`;
                     $("#SendContainer").html(html);
 
                     $("#tblReadyOrders").DataTable({
                         order: [],
-                        columnDefs: [
-                            { orderable: false, targets: 0 }
-                        ],
+                        columnDefs: [{ orderable: false, targets: 0 }],
+                        pageLength: -1,
+                        lengthMenu: [[10, 100, 250, 500, -1], [10, 100, 250, 500, "Todos"]],
                         language: {
                             search: "Buscar:",
                             lengthMenu: "Mostrar _MENU_ registros",
                             info: "Mostrando _START_ a _END_ de _TOTAL_",
-                            paginate: {
-                                previous: "Anterior",
-                                next: "Siguiente"
-                            },
+                            paginate: { previous: "Anterior", next: "Siguiente" },
                             zeroRecords: "No se encontraron registros"
+                        },
+                        drawCallback: function () {
+                            updateSelectedCount();
                         }
                     });
+
+                    updateSelectedCount();
                 },
                 error: function (xhr, status) {
                     hideLoader();
@@ -246,7 +275,6 @@
             });
         });
 
-
         $(document).on('click', '#btnSendReady', function () {
             const selected = [];
 
@@ -260,7 +288,7 @@
                         EdoCli: $(this).data('edocli'),
                         MunCli: $(this).data('muncli'),
                         Sector: $(this).data('sector'),
-                        CpCli: $(this).data('cpcli'),
+                        CpCli: String($(this).data('cpcli')),
                         Panel: $(this).data('panel'),
                         Volado: $(this).data('volado'),
                         MasGen: $(this).data('masgen'),
@@ -277,12 +305,18 @@
                 return;
             }
 
+            showSend();
+
             $.ajax({
                 url: '@Url.Action("SendReadyOrders", "DeliveryPlanner")',
                 type: 'POST',
                 contentType: 'application/json',
                 data: JSON.stringify(selected),
                 success: function (response) {
+                    $('#tblReadyOrders tbody').empty();
+
+                    hideSend();
+
                     Swal.fire({
                         icon: response.correct ? 'success' : 'warning',
                         title: response.correct ? 'Exitoso' : 'Error',
@@ -290,6 +324,8 @@
                     });
                 },
                 error: function (xhr) {
+                    hideSend();
+
                     Swal.fire({
                         icon: 'error',
                         title: 'Error del servidor',

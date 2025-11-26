@@ -68,11 +68,13 @@ namespace BL.Menu
                 new("BaseControl", "BaseControl", "BaseControl", "bi-clipboard-check"),
                 new("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"),
                 new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt"),
-                new("Pendientes Confirmacion", "Maintenance", "GetToConfirm", "bi-calendar-check"),
+                new("Pend. Confirmacion", "Maintenance", "GetToConfirm", "bi-calendar-check"),
                 new("Carta Porte", "CartaPorte", "Index", "bi-file-earmark-text bi-truck"),
                 new("Ordenes Listas", "DeliveryPlanner", "GetReadyOrdersPerDate", "bi-file-earmark-check bi-send"),
                 new("Planeacion", "DeliveryPlanner", "Planning", "bi-map bi-diagram-3"),
                 new("Operadores", "RouteOperator", "ListOperadores", "bi-receipt")
+                new("ReSender", "ReSender", "ReSender", "bi-arrow-clockwise bi-send")
+
             };
         }
     }

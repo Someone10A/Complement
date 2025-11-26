@@ -65,6 +65,41 @@ namespace PL.Controllers
             });
         }
 
+        [HttpPost]
+        public IActionResult GetTope(string date)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+                return Unauthorized();
+
+            ML.Result result = BL.Maintenance.Maintenance.GetTope(date, "L", mode);
+
+            if (!result.Correct)
+            {
+                return Json(new
+                {
+                    success = false,
+                    message = result.Message,
+                    data = (object)null
+                });
+            }
+
+            var (ok, mensaje) = ((bool, string))result.Object;
+
+            return Json(new
+            {
+                success = true,
+                message = (string)null,
+                data = new
+                {
+                    isOk = ok,
+                    message = mensaje
+                }
+            });
+        }
+
+
+
         [HttpGet]
         public IActionResult GetColByCodPos(string codPos)
         {

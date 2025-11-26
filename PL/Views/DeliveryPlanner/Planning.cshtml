@@ -64,6 +64,27 @@
     <button id="btnCancelAjax" class="btn btn-danger mt-3">Cancelar</button>
 </div>
 
+<div id="sendOverlay" style="
+    display:none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+">
+    <div class="spinner" style="
+        width: 60px;
+        height: 60px;
+        border: 8px solid #eee;
+        border-top: 8px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    "></div>
+</div>
+
 @section Styles {
     <style>
         @@keyframes spin {
@@ -96,6 +117,21 @@
             }
         });
 
+        function showSend() {
+            $("#sendOverlay").css("display", "flex");
+        }
+        function hideSend() {
+            $("#sendOverlay").hide();
+        }
+
+        function updateSelectedCount() {
+            const count = $('#tblReadyOrders tbody .chkIsReady:checked').length;
+            $('#selectedCount').text(`${count} registros seleccionados`);
+        }
+
+        $(document).on('change', '.chkIsReady', function () {
+            updateSelectedCount();
+        });
 
         $("#btnBuscar").click(function () {
 
@@ -142,7 +178,17 @@
                     }
 
                     let html = `
-                        <div class="d-flex justify-content-end mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div id="selectedCount" class="fw-bold text-primary">
+                                0 registros seleccionados
+                            </div>
+
+                            <div class="mx-3" style="width: 200px;">
+                                <label for="txtNumRutas" class="form-label fw-bold mb-1">Rutas:</label>
+                                <input type="number" id="txtNumRutas" class="form-control" min="1"
+                                       value="5" placeholder="Número" />
+                            </div>
+
                             <button id="btnSendReady" class="btn btn-success">
                                 <i class="bi bi-send"></i> Enviar seleccionados
                             </button>
@@ -155,6 +201,7 @@
                                     <th>SCN</th>
                                     <th>Orden WMS</th>
                                     <th>Estatus WMS</th>
+                                    <th>Estatus GNX</th>
                                     <th>Estado</th>
                                     <th>Municipio</th>
                                     <th>Sector</th>
@@ -169,9 +216,12 @@
 
                     $.each(result, function (i, item) {
 
+                        const gnx = (item.gnxEst || "").trim().toLowerCase();
+
                         const isBlocked =
                             (item.sector === "XXX" && item.tipEnt === "L") ||
-                            (item.wmsEst !== "Creado");
+                            (item.wmsEst !== "Creado")||
+                            (gnx !== "impreso" && gnx !== "transito-retenido");
 
                         const rowClass = isBlocked ? "text-danger" : "";
                         const disabledAttr = isBlocked ? "disabled" : "";
@@ -179,7 +229,9 @@
                         html += `
                             <tr class="${rowClass}"
                                 data-scn="${item.numScn}"
+                                data-codpto="${item.codPto}"
                                 data-wmsest="${item.wmsEst}"
+                                data-gnxest="${item.gnxEst}"
                                 data-ptoalm="${item.ptoAlm}"
                                 data-edocli="${item.edoCli}"
                                 data-muncli="${item.munCli}"
@@ -198,6 +250,7 @@
                                 <td>${item.numScn}</td>
                                 <td>${item.ordRel}</td>
                                 <td>${item.wmsEst}</td>
+                                <td>${item.gnxEst}</td>
                                 <td>${item.edoCli}</td>
                                 <td>${item.munCli}</td>
                                 <td>${item.sector}</td>
@@ -218,9 +271,9 @@
 
                     $("#tblReadyOrders").DataTable({
                         order: [],
-                        columnDefs: [
-                            { orderable: false, targets: 0 }
-                        ],
+                        columnDefs: [{ orderable: false, targets: 0 }],
+                        pageLength: -1,
+                        lengthMenu: [[10, 100, 250, 500, -1], [10, 100, 250, 500, "Todos"]],
                         language: {
                             search: "Buscar:",
                             lengthMenu: "Mostrar _MENU_ registros",
@@ -230,8 +283,13 @@
                                 next: "Siguiente"
                             },
                             zeroRecords: "No se encontraron registros"
+                        },
+                        drawCallback: function () {
+                            updateSelectedCount();
                         }
                     });
+
+                     updateSelectedCount();
                 },
                 error: function (xhr, status) {
                     hideLoader();
@@ -248,26 +306,29 @@
 
 
         $(document).on('click', '#btnSendReady', function () {
+
             const selected = [];
 
             $('#tblReadyOrders tbody tr').each(function () {
                 const chk = $(this).find('.chkIsReady');
                 if (chk.is(':checked')) {
                     selected.push({
+                        IsReady: true,
+                        CodPto: String($(this).data('codpto')),
                         NumScn: $(this).data('scn'),
                         WmsEst: $(this).data('wmsest'),
+                        GnxEst: $(this).data('gnxest'),
                         PtoAlm: String($(this).data('ptoalm')),
                         EdoCli: $(this).data('edocli'),
                         MunCli: $(this).data('muncli'),
                         Sector: $(this).data('sector'),
-                        CpCli: $(this).data('cpcli'),
+                        CpCli: String($(this).data('cpcli')),
                         Panel: $(this).data('panel'),
                         Volado: $(this).data('volado'),
                         MasGen: $(this).data('masgen'),
                         TipEnt: $(this).data('tipent'),
                         OrdRel: String($(this).data('ordrel')),
-                        FecEnt: String($(this).data('fecent')),
-                        IsReady: true
+                        FecEnt: String($(this).data('fecent'))
                     });
                 }
             });
@@ -277,12 +338,25 @@
                 return;
             }
 
+            const numRutas = parseInt($("#txtNumRutas").val(), 10);
+
+            const payload = {
+                routes: numRutas,
+                planInfoList: selected
+            };
+
+            showSend();
+
             $.ajax({
                 url: '@Url.Action("SendToRoute", "DeliveryPlanner")',
                 type: 'POST',
                 contentType: 'application/json',
-                data: JSON.stringify(selected),
+                data: JSON.stringify(payload),
                 success: function (response) {
+
+                    $('#tblReadyOrders tbody').empty();
+                    hideSend();
+
                     Swal.fire({
                         icon: response.correct ? 'success' : 'warning',
                         title: response.correct ? 'Exitoso' : 'Error',
@@ -290,6 +364,8 @@
                     });
                 },
                 error: function (xhr) {
+                    hideSend();
+                    // console.log(xhr);
                     Swal.fire({
                         icon: 'error',
                         title: 'Error del servidor',
@@ -298,5 +374,7 @@
                 }
             });
         });
+
+
     </script>
 }

@@ -1000,5 +1000,32 @@ namespace BL.CartaPorte
             return csv.ToString();
         }
 
+        public static async Task InsertarOraRuteoCartaPorte(string idUni, string carSal, int estatus, string rfcOpe, string numEco, int? usuCon, DateTime fecCon, int codEmp, string mode)
+        {
+            using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGen("DEV")))
+            {
+                await connection.OpenAsync();
+
+                string query = @"
+                    INSERT INTO ora_ruteo_carta_porte (cod_emp, id_uni, car_sal, estatus, rfc_ope, num_eco, usu_con, fec_con)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ";
+
+                using (var command = new OdbcCommand(query, connection))
+                {
+                    command.Parameters.Add(new OdbcParameter("@cod_emp", (decimal)codEmp));
+                    command.Parameters.Add(new OdbcParameter("@id_uni", idUni.PadRight(30).Substring(0, 30)));
+                    command.Parameters.Add(new OdbcParameter("@car_sal", carSal.PadRight(50).Substring(0, 50)));
+                    command.Parameters.Add(new OdbcParameter("@estatus", (short)estatus));
+                    command.Parameters.Add(new OdbcParameter("@rfc_ope", (rfcOpe ?? " ").PadRight(15).Substring(0, 15)));
+                    command.Parameters.Add(new OdbcParameter("@num_eco", (numEco ?? " ").PadRight(20).Substring(0, 20)));
+                    command.Parameters.Add(new OdbcParameter("@usu_con", usuCon.HasValue ? (decimal)usuCon.Value : DBNull.Value));
+                    command.Parameters.Add(new OdbcParameter("@fec_con", fecCon.ToString("yyyy-MM-dd HH:mm")));
+
+                    await command.ExecuteNonQueryAsync();
+                }
+            }
+        }
+
     }
 }

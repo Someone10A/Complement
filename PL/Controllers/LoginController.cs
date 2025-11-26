@@ -75,5 +75,18 @@ namespace PL.Controllers
         {
             return BL.Login.Login.GetSupervisorUsers(mode);
         }
+
+        [HttpPost]
+        public IActionResult ResetPassword(decimal codEmp, string rfcOpe, string newPassword)
+        {
+            string mode = "DEV";
+            ML.Result result = BL.RouteOperator.RouteOperator.ResetPassword(codEmp, rfcOpe, newPassword, mode);
+
+            return Json(new
+            {
+                success = result.Correct,
+                message = result.Message
+            });
+        }
     }
 }

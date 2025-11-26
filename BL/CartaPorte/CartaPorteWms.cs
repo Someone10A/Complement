@@ -128,7 +128,7 @@ namespace BL.CartaPorte
         }
 
         // Método principal EnviarCarta
-        public static async Task<ML.Result> EnviarCarta(ML.CartaPorte.EnviarCartaRequest request, string mode)
+        public static async Task<ML.Result> EnviarCarta(ML.CartaPorte.EnviarCartaRequest request, string mode, int? usuCon = null)
         {
             ML.Result result = new ML.Result();
             try
@@ -362,7 +362,23 @@ namespace BL.CartaPorte
                 await BL.CartaPorte.CartaPorte.InsertarTransporte(transporteInfo, idUni, codEmp, pesoBrutoTotal, mode);
                 await BL.CartaPorte.CartaPorte.InsertarOperador(operadorInfo, request.Operador, idUni, codEmp, mode);
 
-                // Verificar si es operador específico
+                // Función auxiliar para insertar en ora_ruteo_carta_porte
+                async Task InsertarRuteoCartaPorte()
+                {
+                    await BL.CartaPorte.CartaPorte.InsertarOraRuteoCartaPorte(
+                        idUni, 
+                        carSal, 
+                        1, 
+                        operadorInfo["rfc_ope"]?.ToString() ?? "", 
+                        request.Unidad, 
+                        usuCon, 
+                        request.FechaSalida, 
+                        codEmp, 
+                        mode
+                    );
+                }
+
+                // Verificar si es operador específico (proveedor)
                 var operadoresEspecificos = new[] { "Transportes MyM", "Paqueteria Castores" };
                 bool esOperadorEspecifico = operadoresEspecificos.Contains(request.Operador);
 
@@ -370,11 +386,20 @@ namespace BL.CartaPorte
                 {
                     //System.Console.WriteLine($"[ENVIAR CARTA WMS] Operador específico detectado: {request.Operador}, generando CSVs...");
                     await BL.CartaPorte.CartaPorte.GenerarCSVsDespuesInserts(request, idUni, codEmp, mode);
+                    
+                    // Insertar en ora_ruteo_carta_porte después de enviar el correo (proveedor)
+                    //System.Console.WriteLine($"[ENVIAR CARTA WMS] Insertando en ora_ruteo_carta_porte después de enviar correo...");
+                    await InsertarRuteoCartaPorte();
+                    
                     //System.Console.WriteLine($"[ENVIAR CARTA WMS] Proceso completado exitosamente para operador específico");
                     result.Correct = true;
                     result.Object = new { message = "Folio enviado a " + request.Operador, entregas = skusByParada.Count };
                     return result;
                 }
+
+                // Insertar en ora_ruteo_carta_porte después de generar id_uni (no proveedor)
+                //System.Console.WriteLine($"[ENVIAR CARTA WMS] Insertando en ora_ruteo_carta_porte después de generar id_uni...");
+                await InsertarRuteoCartaPorte();
 
                 //System.Console.WriteLine($"[ENVIAR CARTA WMS] Proceso completado exitosamente. ID generado: {idUni}, Entregas: {skusByParada.Count}");
                 result.Correct = true;

@@ -351,6 +351,54 @@ namespace BL.RouteOperator
                     string carSal = (asignacion.car_sal ?? "").Trim();
                     if (carSal.Length > 60) carSal = carSal.Substring(0, 60);
 
+                    string rfcOpe = (asignacion.rfc_ope ?? "").Trim();
+                    if (rfcOpe.Length > 15) rfcOpe = rfcOpe.Substring(0, 15);
+
+                    // Variable para almacenar información sobre asignación previa eliminada
+                    string carSalEliminada = null;
+
+                    // Paso 0: Verificar si el operador ya tiene una asignación existente
+                    //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: Verificando si el operador tiene asignación existente...");
+                    var asignacionExistente = GetAsignacionOperadorByRfc(rfcOpe, connection);
+                    
+                    if (asignacionExistente != null)
+                    {
+                        //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: Se encontró asignación existente. car_sal: '{asignacionExistente.car_sal}', estatus: {asignacionExistente.estatus}");
+                        
+                        // Si estatus != 1, mantener el registro y no permitir asignar otra ruta
+                        if (asignacionExistente.estatus != 1)
+                        {
+                            result.Correct = false;
+                            result.Message = "El operador tiene una ruta asignada que aún no se ha cerrado. No es posible asignar otra ruta.";
+                            //Console.WriteLine($"[InsertAsignacionOperador] Paso 0 fallido: {result.Message}");
+                            return result;
+                        }
+                        
+                        // Si estatus = 1, verificar en ora_ruta
+                        //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: estatus = 1, verificando ora_ruta...");
+                        string carSalExistente = (asignacionExistente.car_sal ?? "").Trim();
+                        int estatusRuta = GetEstatusRuta(carSalExistente, connection);
+                        //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: estatus en ora_ruta para car_sal '{carSalExistente}': {estatusRuta}");
+                        
+                        if (estatusRuta == 1)
+                        {
+                            // Borrar el registro de ora_asignacion_operador
+                            //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: estatus_ruta = 1, borrando asignación existente...");
+                            DeleteAsignacionOperadorByRfc(rfcOpe, connection);
+                            carSalEliminada = carSalExistente; // Guardar para mensaje posterior
+                            //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: Asignación existente borrada. Continuando con nueva asignación...");
+                        }
+                        else
+                        {
+                            // Mantener el registro y no permitir asignar otra ruta
+                            result.Correct = false;
+                            result.Message = "El operador tiene una ruta asignada que aún no está finalizada en ora_ruta. No es posible asignar otra ruta.";
+                            //Console.WriteLine($"[InsertAsignacionOperador] Paso 0 fallido: {result.Message}");
+                            return result;
+                        }
+                    }
+                    //Console.WriteLine($"[InsertAsignacionOperador] Paso 0 exitoso: No hay asignación existente o fue eliminada. Continuando...");
+
                     // Paso 1: Verificar que car_sal exista en ora_ruta
                     //Console.WriteLine($"[InsertAsignacionOperador] Paso 1: Validando que car_sal existe en ora_ruta: '{carSal}'");
                     bool existeEnRuta = ExisteCarSalEnRuta(carSal, mode);
@@ -388,9 +436,6 @@ namespace BL.RouteOperator
                         string ptoAlm = asignacion.pto_alm.Trim();
                         if (ptoAlm.Length > 15) ptoAlm = ptoAlm.Substring(0, 15);
 
-                        string rfcOpe = (asignacion.rfc_ope ?? "").Trim();
-                        if (rfcOpe.Length > 15) rfcOpe = rfcOpe.Substring(0, 15);
-
                         //Console.WriteLine($"[InsertAsignacionOperador] Valores procesados - pto_alm: '{ptoAlm}', car_sal: '{carSal}', rfc_ope: '{rfcOpe}'");
 
                         cmd.Parameters.Add(new OdbcParameter("@cod_emp", asignacion.cod_emp));
@@ -406,7 +451,15 @@ namespace BL.RouteOperator
                         if (rowsAffected > 0)
                         {
                             result.Correct = true;
-                            result.Message = "Ruta asignada correctamente";
+                            // Si se eliminó una asignación previa, informar al usuario
+                            if (!string.IsNullOrEmpty(carSalEliminada))
+                            {
+                                result.Message = $"Se eliminó la asignación previa de la ruta '{carSalEliminada}' (finalizada) y se asignó la nueva ruta correctamente.";
+                            }
+                            else
+                            {
+                                result.Message = "Ruta asignada correctamente";
+                            }
                             //Console.WriteLine($"[InsertAsignacionOperador] Inserción exitosa. Message: {result.Message}");
                         }
                         else
@@ -451,6 +504,91 @@ namespace BL.RouteOperator
                 result.Ex = ex;
             }
             return result;
+        }
+
+        private static ML.RouteOperator.AsignacionOperador GetAsignacionOperadorByRfc(string rfcOpe, OdbcConnection connection)
+        {
+            try
+            {
+                string query = @"SELECT cod_emp, pto_alm, car_sal, rfc_ope, estatus
+                                FROM ora_asignacion_operador
+                                WHERE rfc_ope = ?
+                                ORDER BY estatus ASC";
+
+                using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                {
+                    cmd.Parameters.Add(new OdbcParameter("@rfc_ope", rfcOpe.Trim()));
+
+                    using (OdbcDataReader reader = cmd.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            var asignacion = new ML.RouteOperator.AsignacionOperador
+                            {
+                                cod_emp = reader.GetDecimal(0),
+                                pto_alm = reader.GetString(1)?.Trim() ?? "",
+                                car_sal = reader.IsDBNull(2) ? null : reader.GetString(2)?.Trim(),
+                                rfc_ope = reader.IsDBNull(3) ? null : reader.GetString(3)?.Trim(),
+                                estatus = reader.GetInt16(4)
+                            };
+                            return asignacion;
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine($"[GetAsignacionOperadorByRfc] ERROR: {ex.Message}");
+            }
+            return null;
+        }
+
+        private static int GetEstatusRuta(string carSal, OdbcConnection connection)
+        {
+            try
+            {
+                string query = @"SELECT estatus
+                                FROM ora_ruta
+                                WHERE car_sal = ?
+                                AND pto_alm = 870";
+
+                using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                {
+                    cmd.Parameters.Add(new OdbcParameter("@car_sal", carSal.Trim()));
+                    object result = cmd.ExecuteScalar();
+                    if (result != null && !Convert.IsDBNull(result))
+                    {
+                        return Convert.ToInt32(result);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine($"[GetEstatusRuta] ERROR: {ex.Message}");
+            }
+            return -1; // Retornar -1 si no se encuentra o hay error
+        }
+
+        private static void DeleteAsignacionOperadorByRfc(string rfcOpe, OdbcConnection connection)
+        {
+            try
+            {
+                string deleteQuery = @"DELETE FROM ora_asignacion_operador WHERE rfc_ope = ?";
+
+                using (OdbcCommand cmd = new OdbcCommand(deleteQuery, connection))
+                {
+                    string rfcOpeTrimmed = (rfcOpe ?? "").Trim();
+                    if (rfcOpeTrimmed.Length > 15) rfcOpeTrimmed = rfcOpeTrimmed.Substring(0, 15);
+
+                    cmd.Parameters.Add(new OdbcParameter("@rfc_ope", rfcOpeTrimmed));
+                    cmd.ExecuteNonQuery();
+                }
+            }
+            catch (Exception ex)
+            {
+                //Console.WriteLine($"[DeleteAsignacionOperadorByRfc] ERROR: {ex.Message}");
+                throw; // Re-lanzar la excepción para que sea manejada en el método llamador
+            }
         }
 
         private static string GetOperadorAsignadoPorCarSal(string carSal, string mode)

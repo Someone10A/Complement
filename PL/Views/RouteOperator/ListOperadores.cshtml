@@ -100,6 +100,7 @@
                                         @if (tieneAsignacion)
                                         {
                                             <button type="button" class="btn btn-sm btn-warning btn-asignacion-detail" 
+                                                    data-cod-emp="@operador.cod_emp"
                                                     data-rfc-ope="@(operador.rfc_ope ?? "")"
                                                     title="Ver detalle de ruta asignada">
                                                 <i class="bi bi-exclamation-triangle-fill"></i>
@@ -212,6 +213,8 @@
             </div>
             <div class="modal-body">
                 <input type="hidden" id="detalle_car_sal" />
+                <input type="hidden" id="detalle_cod_emp" />
+                <input type="hidden" id="detalle_rfc_ope" />
                 <div id="detalleRutaContent">
                     <div class="text-center">
                         <div class="spinner-border text-primary" role="status">
@@ -221,6 +224,9 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnAsignarRutaDesdeDetalle" style="display: none;">
+                    <i class="bi bi-arrow-right-circle"></i> Asignar Ruta
+                </button>
                 <button type="button" class="btn btn-danger" id="btnEliminarAsignacion">
                     <i class="bi bi-trash"></i> Eliminar Asignación
                 </button>
@@ -276,11 +282,15 @@
             });
 
             $('.btn-asignacion-detail').off('click').on('click', function() {
+                const codEmp = $(this).data('cod-emp');
                 const rfcOpe = $(this).data('rfc-ope');
                 const modal = new bootstrap.Modal(document.getElementById('modalDetalleRuta'));
                 
                 $('#detalle_car_sal').val('');
+                $('#detalle_cod_emp').val(codEmp);
+                $('#detalle_rfc_ope').val(rfcOpe);
                 $('#btnEliminarAsignacion').hide();
+                $('#btnAsignarRutaDesdeDetalle').hide();
                 $('#detalleRutaContent').html('<div class="text-center"><div class="spinner-border text-primary" role="status"></div></div>');
                 modal.show();
 
@@ -294,11 +304,17 @@
                             $('#detalle_car_sal').val(asignacion.car_sal || '');
                             
                             const puedeEliminar = asignacion.estatus === 0;
+                            const rutaCerrada = asignacion.estatus === 1;
                             
                             if (puedeEliminar) {
                                 $('#btnEliminarAsignacion').show();
+                                $('#btnAsignarRutaDesdeDetalle').hide();
+                            } else if (rutaCerrada) {
+                                $('#btnEliminarAsignacion').hide();
+                                $('#btnAsignarRutaDesdeDetalle').show();
                             } else {
                                 $('#btnEliminarAsignacion').hide();
+                                $('#btnAsignarRutaDesdeDetalle').hide();
                             }
                             
                             let html = `
@@ -317,15 +333,30 @@
                             `;
                             
                             if (!puedeEliminar) {
-                                html += `
-                                    <div class="alert alert-warning mt-3">
-                                        <i class="bi bi-exclamation-triangle"></i> 
-                                        <strong>La ruta no se puede modificar.</strong>
-                                        <p class="mb-0 mt-2">
-                                            Estado actual: <strong>${asignacion.estatus}</strong> - ${asignacion.estadoDescripcion}
-                                        </p>
-                                    </div>
-                                `;
+                                if (rutaCerrada) {
+                                    html += `
+                                        <div class="alert alert-info mt-3">
+                                            <i class="bi bi-info-circle"></i> 
+                                            <strong>Ruta cerrada y finalizada.</strong>
+                                            <p class="mb-0 mt-2">
+                                                Estado actual: <strong>${asignacion.estatus}</strong> - ${asignacion.estadoDescripcion}
+                                            </p>
+                                            <p class="mb-0 mt-2">
+                                                Puede asignar una nueva ruta al operador.
+                                            </p>
+                                        </div>
+                                    `;
+                                } else {
+                                    html += `
+                                        <div class="alert alert-warning mt-3">
+                                            <i class="bi bi-exclamation-triangle"></i> 
+                                            <strong>La ruta no se puede modificar.</strong>
+                                            <p class="mb-0 mt-2">
+                                                Estado actual: <strong>${asignacion.estatus}</strong> - ${asignacion.estadoDescripcion}
+                                            </p>
+                                        </div>
+                                    `;
+                                }
                             }
                             
                             $('#detalleRutaContent').html(html);
@@ -333,11 +364,13 @@
                             $('#detalleRutaContent').html('<div class="alert alert-warning">No se encontró información de la asignación</div>');
                             $('#detalle_car_sal').val('');
                             $('#btnEliminarAsignacion').hide();
+                            $('#btnAsignarRutaDesdeDetalle').hide();
                         }
                     },
                     error: function() {
                         $('#detalleRutaContent').html('<div class="alert alert-danger">Error al obtener el detalle de la ruta</div>');
                         $('#btnEliminarAsignacion').hide();
+                        $('#btnAsignarRutaDesdeDetalle').hide();
                     }
                 });
             });
@@ -505,13 +538,18 @@
                             btn.prop('disabled', false);
                             btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
                             
+                            // Si el mensaje indica que se eliminó una ruta anterior, no usar timer
+                            const mensaje = assignResponse.message || 'Ruta asignada correctamente';
+                            const seEliminoRutaAnterior = mensaje.includes('Se eliminó la asignación previa');
+                            
                             Swal.fire({
                                 icon: 'success',
                                 title: 'Éxito',
-                                text: assignResponse.message || 'Ruta asignada correctamente',
+                                text: mensaje,
                                 confirmButtonText: 'Aceptar',
-                                timer: 2000,
-                                showConfirmButton: true
+                                timer: seEliminoRutaAnterior ? null : 2000,
+                                showConfirmButton: true,
+                                allowOutsideClick: false
                             }).then(() => {
                                 refrescarTablaOperadores();
                             });
@@ -535,6 +573,32 @@
                         btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
                     }
                 });
+            });
+
+            $('#btnAsignarRutaDesdeDetalle').on('click', function() {
+                const codEmp = $('#detalle_cod_emp').val();
+                const rfcOpe = $('#detalle_rfc_ope').val();
+                
+                if (!codEmp || !rfcOpe) {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'No se encontró información del operador'
+                    });
+                    return;
+                }
+                
+                // Cerrar el modal de detalle
+                const modalDetalle = bootstrap.Modal.getInstance(document.getElementById('modalDetalleRuta'));
+                if (modalDetalle) modalDetalle.hide();
+                
+                // Prellenar y abrir el modal de asignación
+                $('#asignar_cod_emp').val(codEmp);
+                $('#asignar_rfc_ope').val(rfcOpe);
+                $('#asignar_car_sal').val('');
+                
+                const modalAsignar = new bootstrap.Modal(document.getElementById('modalAsignarRuta'));
+                modalAsignar.show();
             });
 
             $('#btnEliminarAsignacion').on('click', function() {

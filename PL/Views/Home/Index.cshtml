@@ -29,7 +29,7 @@
                 "MatchGTM-LGA" => "Match de piezas a detalle entre Declaratoria y LGA",
                 "Rutas" => "Rutas enviadas de entrega por día de WMS",
                 "Busqueda" => "Búsqueda avanzada de registros de envíos",
-                "MatcxDia" => "Coincidencias por día entre LGA y WMS",
+                "MatcxDia" => "Coincidencias p  or día entre LGA y WMS",
                 "MatchxRango" => "Coincidencias por rango de fechas LGA y WMS",
                 "Regresos" => "Regresos de ruta pendientes por recibir",
                 "BaseControl" => "Control y registro de entregas",
@@ -39,16 +39,13 @@
                 "Carta Porte" => "Generación de carta porte para embarques",
                 "Ordenes Listas"=>"Ordenes listas para mandar a planeación",
                 "Planeacion" => "Planeacion de ordenes entrega BT 1-1",
-                "Operadores" => "Consultar operadores",
+                "Planeaciones" => "Planeaciones de ordenes entrega BT 1-1",
+                "Operadores" => "Consultar operadores y asignar rutas",
                 "ReSender" => "Reenvio de ASN y Orden cabecera por # de orden",
                 _ => ""
             };
 
-            string colClass = item.Title == "Operadores" 
-                ? "col-6 col-sm-5 col-md-4 col-lg-3" 
-                : "col-6 col-sm-4 col-md-3 col-lg-2";
-
-            <div class="@colClass text-center">
+            <div class="col-6 col-sm-4 col-md-3 col-lg-2 text-center">
                 <a asp-controller="@item.Controller" asp-action="@item.Action"
                    class="menu-card text-decoration-none text-dark d-block p-3 border rounded-4 shadow-sm transition">
                     @foreach (var icon in item.Icon.Split(' '))

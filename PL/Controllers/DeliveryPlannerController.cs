@@ -102,5 +102,44 @@ namespace PL.Controllers
 
             return Json(result);
         }
+
+
+
+
+        [HttpGet]
+        public IActionResult Plans()
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+            List<ML.DeliveryPlanner.Schema> schemaList = new List<ML.DeliveryPlanner.Schema>();
+
+            ML.Result result = BL.DeliveryPlanner.DeliveryPlanner.GetSchemas(mode);
+            if(!result.Correct)
+            {
+                return View("Plans", (result.Correct, schemaList));
+            }
+            schemaList = (List<ML.DeliveryPlanner.Schema>)result.Object;
+
+            return View("Plans", (result.Correct, schemaList));
+        }
+
+
+        [HttpPost]
+        public IActionResult CreateRouting([FromBody] ML.DeliveryPlanner.Schema schema)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+            List<ML.DeliveryPlanner.Schema> schemaList = new List<ML.DeliveryPlanner.Schema>();
+
+            ML.Result result = BL.DeliveryPlanner.DeliveryPlanner.CreateRouting(schema,mode);
+
+            return Json(result);
+        }
     }
 }

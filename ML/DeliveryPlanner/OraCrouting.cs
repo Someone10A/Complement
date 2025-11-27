@@ -6,8 +6,9 @@ using System.Threading.Tasks;
 
 namespace ML.DeliveryPlanner
 {
-    public class Schema
+    public class OraCrouting
     {
+        public string CodEmp { get; set; }
         public string PtoAlm { get; set; }
         public string Estatus { get; set; }
         public string FecEnt { get; set; }

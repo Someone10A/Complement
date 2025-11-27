@@ -1,0 +1,232 @@
+﻿@model (bool Correct, List<ML.DeliveryPlanner.Schema> Schemas)
+
+@{
+    ViewData["Title"] = "Seguimiento a planeaciones";
+}
+
+<div class="container-fluid mt-3 px-2">
+    <h2 class="mb-4 text-primary fw-bold">
+        Seguimiento a planeaciones
+    </h2>
+    <hr />
+</div>
+
+<div class="container mt-3">
+
+    @if (!Model.Correct)
+    {
+        <div class="alert alert-warning">No se pudieron obtener las planeaciones.</div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var item in Model.Schemas)
+            {
+                var estatus = item.Estatus?.Trim();
+                var tipEnt = item.TipEnt?.Trim();
+
+                string textoEstatus = estatus switch
+                {
+                    "0" => "Preparado para asignación",
+                    "1" => "Asignado (Rutas generadas)",
+                    "2" => "PreAsignado",
+                    _ => "Desconocido"
+                };
+
+                string textoTipEnt = tipEnt switch
+                {
+                    "L" => "Local",
+                    "F" => "Foranea",
+                    "I" => "Internet",
+                    _ => "Desconocido"
+                };
+
+                <div class="col-md-4 mb-3">
+                    <div class="card shadow-sm">
+                        <div class="card-body">
+
+                            <h5 class="fw-bold" style="color:#0d6efd;">
+                                Folio: @item.PreFol
+                            </h5>
+
+                            <div class="row mt-2">
+                                <div class="col-6 small">
+                                    <div><strong>Estatus:</strong> @textoEstatus</div>
+                                    <div><strong>Almacén:</strong> @item.PtoAlm</div>
+                                </div>
+
+                                <div class="col-6 small">
+                                    <div><strong># Órdenes:</strong> @item.ScnCan</div>
+                                    <div><strong># Rutas:</strong> @item.Unidades</div>
+                                </div>
+                            </div>
+
+                            <div class="row mt-2">
+
+                                <div class="col-6 small">
+                                    <div><strong>Fecha Entrega:</strong> @item.FecEnt</div>
+                                </div>
+
+                                <div class="col-6 small">
+                                    <div><strong>Tipo Entrega:</strong> @textoTipEnt</div>
+                                </div>
+
+                            </div>
+
+                            <hr class="my-3" />
+
+                            <div class="d-flex justify-content-end">
+
+                                @if (estatus == "0")
+                                {
+                                    <button class="btn btn-success px-4 btnGenerar"
+                                            data-schema='@Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(item).Replace("'", "&#39;"))'>
+                                        Generar
+                                    </button>
+                                }
+                                else if (estatus == "2")
+                                {
+                                    <div class="w-75">
+                                        <input type="file" class="form-control mb-2 fileUpload" />
+                                    </div>
+                                    <button class="btn btn-primary px-4 ms-2 btnUpload"
+                                            data-schema='@Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(item).Replace("'", "&#39;"))'>
+                                        Cargar archivo
+                                    </button>
+                                }
+                                else
+                                {
+                                    <div class="text-muted small">Sin acciones disponibles</div>
+                                }
+
+                            </div>
+
+                        </div>
+
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+<div id="sendOverlay" style="
+    display:flex;
+    visibility:hidden;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.4);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+">
+    <div class="spinner" style="
+        width: 60px;
+        height: 60px;
+        border: 8px solid #eee;
+        border-top: 8px solid #3498db;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    "></div>
+</div>
+
+@section Styles {
+    <style>
+        @@keyframes spin {
+            from {
+                transform: rotate(0deg);
+            }
+
+            to {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+
+        $(document).on("click", ".btnGenerar", function () {
+
+            let schema = $(this).data("schema");
+
+            $("#sendOverlay").css("visibility", "visible");
+
+            $.ajax({
+                url: '/DeliveryPlanner/CreateRouting',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(schema),
+                success: function (response) {
+
+                    $("#sendOverlay").css("visibility", "hidden");
+
+                    Swal.fire({
+                        icon: response.correct ? 'success' : 'warning',
+                        title: response.correct ? 'Exitoso' : 'Error',
+                        text: response.message
+                    });
+
+                    if (response.correct) {
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                },
+                error: function () {
+                    $("#sendOverlay").css("visibility", "hidden");
+                    Swal.fire("Error", "No se pudo procesar la solicitud.", "error");
+                }
+            });
+        });
+
+
+        $(document).on("click", ".btnUpload", function () {
+
+            let parent = $(this).closest(".card-body");
+            let fileInput = parent.find(".fileUpload")[0];
+
+            if (!fileInput.files.length) {
+                Swal.fire("Atención", "Selecciona un archivo.", "warning");
+                return;
+            }
+
+            let schema = $(this).data("schema");
+
+            let formData = new FormData();
+            formData.append("excel", fileInput.files[0]);
+            formData.append("schema", JSON.stringify(schema));
+
+            $("#sendOverlay").css("visibility", "visible");
+
+            $.ajax({
+                url: '/DeliveryPlanner/UploadExcel',
+                type: 'POST',
+                contentType: false,
+                processData: false,
+                data: formData,
+                success: function (response) {
+
+                    $("#sendOverlay").css("visibility", "hidden");
+
+                    Swal.fire({
+                        icon: response.correct ? 'success' : 'warning',
+                        title: response.correct ? 'Exitoso' : 'Error',
+                        text: response.message
+                    });
+
+                    if (response.correct) {
+                        setTimeout(() => location.reload(), 1000);
+                    }
+                },
+                error: function () {
+                    $("#sendOverlay").css("visibility", "hidden");
+                    Swal.fire("Error", "No se pudo cargar el archivo.", "error");
+                }
+            });
+        });
+
+    </script>
+}

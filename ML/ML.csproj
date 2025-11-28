@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Operator\" />
     <Folder Include="RouteOperator\" />
   </ItemGroup>
 

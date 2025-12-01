@@ -340,14 +340,12 @@ namespace BL.RouteOperator
             ML.Result result = new ML.Result();
             try
             {
-                //Console.WriteLine($"[InsertAsignacionOperador] Iniciando inserción. cod_emp: {asignacion.cod_emp}, pto_alm: '{asignacion.pto_alm}', car_sal: '{asignacion.car_sal}', rfc_ope: '{asignacion.rfc_ope}', estatus: {asignacion.estatus}, mode: '{mode}'");
-                
                 using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {
-                    //Console.WriteLine($"[InsertAsignacionOperador] Abriendo conexión a base de datos...");
                     connection.Open();
-                    //Console.WriteLine($"[InsertAsignacionOperador] Conexión abierta exitosamente");
 
+                    //Correccion Siento que estas validaciones estan de mas, ya que deben de venir los datos de la vista
+                            //los datos de la vista deben venir del Back
                     string carSal = (asignacion.car_sal ?? "").Trim();
                     if (carSal.Length > 60) carSal = carSal.Substring(0, 60);
 
@@ -358,7 +356,6 @@ namespace BL.RouteOperator
                     string carSalEliminada = null;
 
                     // Paso 0: Verificar si el operador ya tiene una asignación existente
-                    //Console.WriteLine($"[InsertAsignacionOperador] Paso 0: Verificando si el operador tiene asignación existente...");
                     var asignacionExistente = GetAsignacionOperadorByRfc(rfcOpe, connection);
                     
                     if (asignacionExistente != null)
@@ -510,6 +507,7 @@ namespace BL.RouteOperator
         {
             try
             {
+                /*Correccion aqui en realidad, deberia buscar un estatus IN(...) buscando la ruta con estatus "vivos" si no hay registros si puede asignar nueva ruta*/
                 string query = @"SELECT cod_emp, pto_alm, car_sal, rfc_ope, estatus
                                 FROM ora_asignacion_operador
                                 WHERE rfc_ope = ?

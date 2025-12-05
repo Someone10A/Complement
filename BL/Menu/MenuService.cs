@@ -74,6 +74,7 @@ namespace BL.Menu
                 new("Planeacion", "DeliveryPlanner", "Planning", "bi-map bi-diagram-3"),
                 new("Planeaciones", "DeliveryPlanner", "Plans", "bi-map bi-truck"),
                 new("Operadores", "RouteOperator", "ListOperadores", "bi-people"),
+                new("Carga de salida", "RouteOperator", "ListCarSal", "bi-box-seam"),
                 new("ReSender", "ReSender", "ReSender", "bi-arrow-clockwise bi-send")
 
             };

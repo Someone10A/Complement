@@ -89,11 +89,17 @@
                                     <div class="w-75">
                                         <input type="file" class="form-control mb-2 fileUpload" />
                                     </div>
+
                                     <button class="btn btn-primary px-4 ms-2 btnUpload"
                                             data-schema='@Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(item).Replace("'", "&#39;"))'>
                                         Cargar archivo
                                     </button>
-                                }
+
+                                    <button class="btn btn-outline-secondary px-3 ms-2 btnDownload"
+                                            data-schema='@Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(item).Replace("'", "&#39;"))'>
+                                        Descargar Excel
+                                    </button>
+                                }   
                                 else
                                 {
                                     <div class="text-muted small">Sin acciones disponibles</div>
@@ -182,6 +188,76 @@
             });
         });
 
+        $(document).on("click", ".btnDownload", function () {
+
+            let schema = $(this).data("schema");
+
+            $("#sendOverlay").css("visibility", "visible");
+
+            $.ajax({
+                url: '/DeliveryPlanner/GetRoutesBySchema',
+                type: 'POST',
+                data: JSON.stringify(schema),
+                contentType: 'application/json',
+                xhrFields: {
+                    responseType: 'blob'
+                },
+                success: function (data, status, xhr) {
+
+                    $("#sendOverlay").css("visibility", "hidden");
+
+                    let contentType = xhr.getResponseHeader("Content-Type");
+                    if (contentType && contentType.includes("application/json")) {
+
+                        let reader = new FileReader();
+                        reader.onload = function () {
+                            let json = JSON.parse(reader.result);
+
+                            Swal.fire({
+                                icon: json.correct ? "success" : "error",
+                                title: json.correct ? "OK" : "Error",
+                                text: json.message
+                            });
+                        };
+                        reader.readAsText(data);
+
+                        return;
+                    }
+
+                    let fileName = "Rutas.xlsx";
+                    let disposition = xhr.getResponseHeader("Content-Disposition");
+
+                    if (disposition) {
+                        let match = disposition.match(/filename\*?=([^;]+)/i);
+                        if (match && match[1]) {
+                            fileName = decodeURIComponent(
+                                match[1]
+                                    .trim()
+                                    .replace(/UTF-8''/, '')
+                                    .replace(/"/g, '')
+                            );
+                        }
+                    }
+
+                    let blob = new Blob([data], {
+                        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    });
+
+                    let link = document.createElement("a");
+                    link.href = window.URL.createObjectURL(blob);
+                    link.download = fileName;
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                },
+                error: function () {
+                    $("#sendOverlay").css("visibility", "hidden");
+                    Swal.fire("Error", "No se pudo descargar el archivo.", "error");
+                }
+            });
+        });
+
+
 
         $(document).on("click", ".btnUpload", function () {
 
@@ -202,7 +278,7 @@
             $("#sendOverlay").css("visibility", "visible");
 
             $.ajax({
-                url: '/DeliveryPlanner/UploadExcel',
+                url: '/DeliveryPlanner/OverwriteRouting',
                 type: 'POST',
                 contentType: false,
                 processData: false,

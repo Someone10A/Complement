@@ -135,7 +135,7 @@ namespace PL.Controllers
 
         //MultiConfirmationsOk
         [HttpPost]
-        public async Task<IActionResult> MultiConfirmation(string shipment, string mode)
+        public async Task<IActionResult> xMultiConfirmation(string shipment, string mode)
         {
             var usuId = HttpContext.Session.GetString("usu_id");
             if (string.IsNullOrEmpty(usuId))
@@ -152,6 +152,80 @@ namespace PL.Controllers
 
             return Ok(result.Message);
         }
+        //-------------------------------------------------------------------
+        //-------------------BASE OPERATOR-----------------------------------
+        //-------------------------------------------------------------------
+        [HttpGet]
+        public IActionResult BaseOperatorGetOpenRoutes()
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
 
+            var result = BL.BaseControl.BaseOperator.GetOpenRoutes(mode);
+            if (!result.Correct)
+            {
+                ViewBag.Error = result.Message;
+                return View("BaseOperator", new List<ML.Operator.RouteHeader>());
+            }
+
+            return View("BaseOperator", result.Object);
+        }
+
+        [HttpPost]
+        public IActionResult BaseOperatorGetOrdersPerRoute([FromBody] ML.BaseControl.OutboundShipment outboundShipment)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return Unauthorized();
+            }
+
+            var result = BL.BaseControl.BaseControl.GetOrdersPerRoute(outboundShipment, mode);
+            if (!result.Correct)
+            {
+                return BadRequest(result.Message);
+            }
+
+            return Json(result.Object);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> MultiConfirmation([FromBody] ML.Operator.RouteHeader route)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return Unauthorized();
+            }
+
+            ML.Result result = BL.BaseControl.BaseOperator.MultiConfirmation(route, mode);
+
+            return Json(new
+            {
+                success = result.Correct,
+                message = result.Message
+            });
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> RejectRoute([FromBody] ML.Operator.RouteHeader route)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return Unauthorized();
+            }
+
+            ML.Result result = BL.BaseControl.BaseOperator.RejectRoute(route, mode);
+
+            return Json(new
+            {
+                success = result.Correct,
+                message = result.Message
+            });
+        }
     }
 }

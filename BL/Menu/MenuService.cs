@@ -30,7 +30,7 @@ namespace BL.Menu
                 menu.Add(new MenuItem("MatchGTM-LGA", "Importations", "MatchOrders", "bi-arrow-left-right"));
             }
 
-            if (cv_area == "CON" || cv_area == "GGB"|| sub_rol == "CIN")
+            if (cv_area == "CON" || cv_area == "GGB" || sub_rol == "CIN"|| sub_rol == "SAC")
             {
                 menu.Add(new MenuItem("Rutas", "TrackingManager", "GetTrackingPerDay", "bi-truck bi-truck"));
                 menu.Add(new MenuItem("Regresos", "TrackingManager", "ReturnedOrders", "bi-box-seam bi-arrow-return-left"));

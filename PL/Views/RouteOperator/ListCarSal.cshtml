@@ -1,0 +1,784 @@
+@model List<string>
+@{
+    ViewData["Title"] = "Asignar carga de salida";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Asignar carga de salida a operador</h2>
+    <hr />
+
+    <form id="token-form" style="display: none;">
+        @Html.AntiForgeryToken()
+    </form>
+
+    @if (!string.IsNullOrEmpty(ViewBag.Error))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @ViewBag.Error
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <!-- Tabla de cargas de salida vírgenes -->
+    <div class="card shadow-sm">
+        <div class="card-body" id="tablaCargasSalidaContainer">
+            <!-- Indicador de carga inicial -->
+            <div id="loadingIndicator" class="text-center p-5">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Cargando...</span>
+                </div>
+            </div>
+
+            <!-- Contenido de la tabla oculto inicialmente hasta que BL lo retorne -->
+            <div id="tablaContent" style="display: none;">
+                <div class="mb-3">
+                    <input type="text" class="form-control" id="buscarCarSal" placeholder="Buscar" maxlength="30">
+                </div>
+
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered table-striped align-middle mb-0" id="tablaCargasSalida">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Carga de Salida</th>
+                                <th class="text-center">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyCargasSalida">
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Paginacion -->
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <div>
+                        <span id="infoPaginacion" class="text-muted"></span>
+                    </div>
+                    <nav>
+                        <ul class="pagination mb-0" id="paginacion">
+                        </ul>
+                    </nav>
+                </div>
+            </div>
+
+            <div id="errorMessage" class="alert alert-danger" style="display: none;">
+                <i class="bi bi-exclamation-triangle"></i> <span id="errorText"></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Asignar Ruta -->
+<div class="modal fade" id="modalAsignarRuta" tabindex="-1" aria-labelledby="modalAsignarRutaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="modalAsignarRutaLabel">
+                    <i class="bi bi-arrow-right-circle"></i> Asignar Ruta
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAsignarRuta">
+                    <input type="hidden" id="asignar_car_sal" />
+                    <div class="mb-3">
+                        <label for="asignar_rfc_ope" class="form-label">Operador (RFC) <span class="text-danger">*</span></label>
+                        <select class="form-select" id="asignar_rfc_ope" name="rfc_ope" required>
+                            <option value="">Seleccione un operador</option>
+                        </select>
+                        <small class="form-text text-muted">Seleccione el operador al que se asignará la ruta</small>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Carga de Salida</label>
+                        <input type="text" class="form-control" id="asignar_car_sal_display" readonly />
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnValidarYAsignar">
+                    <i class="bi bi-check-circle"></i> Validar y Asignar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Mostrar Rutas con SCN -->
+<div class="modal fade" id="modalRutasConScn" tabindex="-1" aria-labelledby="modalRutasConScnLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="modalRutasConScnLabel">
+                    <i class="bi bi-exclamation-triangle-fill"></i> Rutas Activas con SCN
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="rutasConScnContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Ver Detalle de Asignación -->
+<div class="modal fade" id="modalDetalleAsignacion" tabindex="-1" aria-labelledby="modalDetalleAsignacionLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalDetalleAsignacionLabel">
+                    <i class="bi bi-info-circle-fill"></i> Detalle de Asignación
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="detalle_car_sal" />
+                <input type="hidden" id="detalle_cod_emp" />
+                <input type="hidden" id="detalle_rfc_ope" />
+                <div id="detalleAsignacionContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" id="btnEliminarAsignacion" style="display: none;">
+                    <i class="bi bi-trash"></i> Eliminar Asignación
+                </button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let operadoresList = [];
+        let todasLasCargasSalida = [];
+        let cargasFiltradas = [];
+        let paginaActual = 1;
+        const registrosPorPagina = 5;
+
+        function inicializarPaginacion() {
+            todasLasCargasSalida = [];
+            $('.fila-car-sal').each(function() {
+                todasLasCargasSalida.push({
+                    carSal: $(this).data('car-sal'),
+                    elemento: $(this)
+                });
+            });
+
+            cargasFiltradas = todasLasCargasSalida;
+            aplicarFiltro();
+        }
+
+        function aplicarFiltro() {
+            const busqueda = $('#buscarCarSal').val().toLowerCase().trim();
+            
+            if (busqueda === '') {
+                cargasFiltradas = todasLasCargasSalida;
+            } else {
+                cargasFiltradas = todasLasCargasSalida.filter(function(item) {
+                    return item.carSal.toLowerCase().includes(busqueda);
+                });
+            }
+
+            paginaActual = 1;
+            mostrarPagina();
+        }
+
+        function mostrarPagina() {
+            $('.fila-car-sal').hide();
+
+            const inicio = (paginaActual - 1) * registrosPorPagina;
+            const fin = inicio + registrosPorPagina;
+            const totalPaginas = Math.ceil(cargasFiltradas.length / registrosPorPagina);
+
+            // Mostrar solo las filas de la página actual
+            for (let i = inicio; i < fin && i < cargasFiltradas.length; i++) {
+                cargasFiltradas[i].elemento.show();
+            }
+
+            // Actualizar paginación
+            const totalRegistros = cargasFiltradas.length;
+            const registroInicio = totalRegistros > 0 ? inicio + 1 : 0;
+            const registroFin = Math.min(fin, totalRegistros);
+            
+            $('#infoPaginacion').text(
+                totalRegistros > 0 
+                    ? `Mostrando ${registroInicio} - ${registroFin} de ${totalRegistros} registros`
+                    : 'No hay registros para mostrar'
+            );
+            generarControlesPaginacion(totalPaginas);
+        }
+
+        function generarControlesPaginacion(totalPaginas) {
+            const $paginacion = $('#paginacion');
+            $paginacion.empty();
+
+            if (totalPaginas <= 1) {
+                return;
+            }
+
+            // Botón Anterior
+            const $prev = $('<li>').addClass('page-item').toggleClass('disabled', paginaActual === 1);
+            $prev.append(
+                $('<a>').addClass('page-link')
+                    .attr('href', '#')
+                    .attr('aria-label', 'Anterior')
+                    .html('<span aria-hidden="true">&laquo;</span>')
+                    .on('click', function(e) {
+                        e.preventDefault();
+                        if (paginaActual > 1) {
+                            paginaActual--;
+                            mostrarPagina();
+                        }
+                    })
+            );
+            $paginacion.append($prev);
+
+            // Números de página
+            const maxBotones = 5;
+            let inicioPagina = Math.max(1, paginaActual - Math.floor(maxBotones / 2));
+            let finPagina = Math.min(totalPaginas, inicioPagina + maxBotones - 1);
+
+            if (finPagina - inicioPagina < maxBotones - 1) {
+                inicioPagina = Math.max(1, finPagina - maxBotones + 1);
+            }
+
+            for (let i = inicioPagina; i <= finPagina; i++) {
+                const $li = $('<li>').addClass('page-item').toggleClass('active', i === paginaActual);
+                $li.append(
+                    $('<a>').addClass('page-link')
+                        .attr('href', '#')
+                        .text(i)
+                        .on('click', function(e) {
+                            e.preventDefault();
+                            paginaActual = i;
+                            mostrarPagina();
+                        })
+                );
+                $paginacion.append($li);
+            }
+
+            // Botón Siguiente
+            const $next = $('<li>').addClass('page-item').toggleClass('disabled', paginaActual === totalPaginas);
+            $next.append(
+                $('<a>').addClass('page-link')
+                    .attr('href', '#')
+                    .attr('aria-label', 'Siguiente')
+                    .html('<span aria-hidden="true">&raquo;</span>')
+                    .on('click', function(e) {
+                        e.preventDefault();
+                        if (paginaActual < totalPaginas) {
+                            paginaActual++;
+                            mostrarPagina();
+                        }
+                    })
+            );
+            $paginacion.append($next);
+        }
+
+        function cargarOperadores() {
+            $.ajax({
+                url: '@Url.Action("GetOperadoresJson", "RouteOperator")',
+                type: 'GET',
+                success: function(response) {
+                    if (response.success && response.operadores) {
+                        operadoresList = response.operadores;
+                        const select = $('#asignar_rfc_ope');
+                        select.empty();
+                        select.append('<option value="">Seleccione un operador</option>');
+                        
+                        response.operadores.forEach(function(operador) {
+                            if (operador.rfc_ope) {
+                                select.append(`<option value="${operador.rfc_ope}" data-cod-emp="${operador.cod_emp}">${operador.nom_ope} (${operador.rfc_ope})</option>`);
+                            }
+                        });
+                    }
+                },
+                error: function() {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: 'Error al cargar los operadores'
+                    });
+                }
+            });
+        }
+
+        function refrescarTablaCargasSalida() {
+            $('#tablaContent').hide();
+            $('#errorMessage').hide();
+            $('#loadingIndicator').show();
+            $('#buscarCarSal').val('');
+            cargarDatosCargasSalida();
+        }
+
+        function cambiarBotonADetalle(carSal, asignacion) {
+            const fila = $(`.fila-car-sal[data-car-sal="${carSal}"]`);
+            
+            if (fila.length === 0) {
+                console.warn('No se encontró la fila para car_sal:', carSal);
+                return;
+            }
+            
+            const tdAcciones = fila.find('td:last-child');
+            
+            const estadoDescripcion = asignacion.estatus === 0 ? 'Ruta Asignada' : 
+                                     asignacion.estatus === 1 ? 'Ruta Cerrada' : 
+                                     asignacion.estatus === 2 ? 'Ruta Abierta' : 
+                                     asignacion.estatus === 3 ? 'Ruta Finalizada' : 'Desconocido';
+            
+            tdAcciones.html(`
+                <button type="button" class="btn btn-sm btn-warning btn-asignacion-detail" 
+                        data-car-sal="${carSal}"
+                        data-cod-emp="${asignacion.cod_emp}"
+                        data-rfc-ope="${asignacion.rfc_ope}"
+                        data-estatus="${asignacion.estatus}"
+                        data-estado-descripcion="${estadoDescripcion}"
+                        title="Ver detalle de asignación">
+                    <i class="bi bi-info-circle-fill"></i>
+                </button>
+            `);
+            
+            $('.btn-asignacion-detail').off('click').on('click', function() {
+                mostrarDetalleAsignacion($(this));
+            });
+            
+            // Actualizar paginación
+            const item = todasLasCargasSalida.find(i => i.carSal === carSal);
+            if (item) {
+                item.elemento = fila;
+            }
+            
+            // Si la fila está oculta por la paginación, navegar a la página correcta
+            if (!fila.is(':visible')) {
+                const index = cargasFiltradas.findIndex(i => i.carSal === carSal);
+                if (index >= 0) {
+                    const nuevaPagina = Math.floor(index / registrosPorPagina) + 1;
+                    paginaActual = nuevaPagina;
+                    mostrarPagina();
+                } else {
+                    const indexTodas = todasLasCargasSalida.findIndex(i => i.carSal === carSal);
+                    if (indexTodas >= 0) {
+                        $('#buscarCarSal').val('');
+                        aplicarFiltro();
+                        const nuevaPagina = Math.floor(indexTodas / registrosPorPagina) + 1;
+                        paginaActual = nuevaPagina;
+                        mostrarPagina();
+                    }
+                }
+            }
+        }
+
+        function mostrarDetalleAsignacion(btn) {
+            const carSal = btn.data('car-sal');
+            const codEmp = btn.data('cod-emp');
+            const rfcOpe = btn.data('rfc-ope');
+            const estatus = btn.data('estatus');
+            const estadoDescripcion = btn.data('estado-descripcion');
+            
+            $('#detalle_car_sal').val(carSal);
+            $('#detalle_cod_emp').val(codEmp);
+            $('#detalle_rfc_ope').val(rfcOpe);
+            
+            let html = `
+                <div class="mb-3">
+                    <strong>Carga de Salida:</strong>
+                    <p class="mb-0">${carSal || '-'}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>RFC Operador:</strong>
+                    <p class="mb-0">${rfcOpe || '-'}</p>
+                </div>
+                <div class="mb-3">
+                    <strong>Estado:</strong>
+                    <p class="mb-0">
+                        <span class="badge bg-${estatus === 0 ? 'info' : estatus === 1 ? 'secondary' : estatus === 2 ? 'warning' : estatus === 3 ? 'success' : 'secondary'}">
+                            ${estadoDescripcion}
+                        </span>
+                    </p>
+                </div>
+            `;
+            
+            $('#detalleAsignacionContent').html(html);
+            
+            // Mostrar u ocultar el botón de eliminar cuando ruta este en asignada
+            if (estatus === 0) {
+                $('#btnEliminarAsignacion').show();
+            } else {
+                $('#btnEliminarAsignacion').hide();
+            }
+            
+            const modal = new bootstrap.Modal(document.getElementById('modalDetalleAsignacion'));
+            modal.show();
+        }
+
+        function reasignarEventHandlers() {
+            $('.btn-asignar-ruta').off('click').on('click', function() {
+                const carSal = $(this).data('car-sal');
+                
+                $('#asignar_car_sal').val(carSal);
+                $('#asignar_car_sal_display').val(carSal);
+                $('#asignar_rfc_ope').val('');
+                
+                cargarOperadores();
+                
+                const modal = new bootstrap.Modal(document.getElementById('modalAsignarRuta'));
+                modal.show();
+            });
+
+            $('.btn-asignacion-detail').off('click').on('click', function() {
+                mostrarDetalleAsignacion($(this));
+            });
+        }
+
+        function cargarDatosCargasSalida() {
+            $.ajax({
+                url: '@Url.Action("GetCargasSalidaVirgenesJson", "RouteOperator")',
+                type: 'GET',
+                success: function(response) {
+                    $('#loadingIndicator').hide();
+                    
+                    if (response.success && response.cargasSalida) {
+                        // Limpiar el tbody
+                        $('#tbodyCargasSalida').empty();
+                        
+                        // Agregar las filas al tbody
+                        response.cargasSalida.forEach(function(item) {
+                            const carSal = item.carSal;
+                            const tieneAsignacion = item.tieneAsignacion;
+                            const asignacion = item.asignacion;
+                            
+                            let botonHtml = '';
+                            if (tieneAsignacion && asignacion) {
+                                const estadoDescripcion = asignacion.estatus === 0 ? 'Asignada' : 
+                                                         asignacion.estatus === 1 ? 'Cerrada' : 
+                                                         asignacion.estatus === 2 ? 'Abierta' : 
+                                                         asignacion.estatus === 3 ? 'Finalizada' : 'Desconocido';
+                                
+                                botonHtml = `
+                                    <button type="button" class="btn btn-sm btn-warning btn-asignacion-detail" 
+                                            data-car-sal="${carSal}"
+                                            data-cod-emp="${asignacion.cod_emp}"
+                                            data-rfc-ope="${asignacion.rfc_ope}"
+                                            data-estatus="${asignacion.estatus}"
+                                            data-estado-descripcion="${estadoDescripcion}"
+                                            title="Ver detalle de asignación">
+                                        <i class="bi bi-info-circle-fill"></i>
+                                    </button>
+                                `;
+                            } else {
+                                botonHtml = `
+                                    <button type="button" class="btn btn-sm btn-primary btn-asignar-ruta" 
+                                            data-car-sal="${carSal}"
+                                            title="Asignar ruta">
+                                        <i class="bi bi-arrow-right-circle-fill"></i>
+                                    </button>
+                                `;
+                            }
+                            
+                            const fila = `
+                                <tr class="fila-car-sal" data-car-sal="${carSal}">
+                                    <td>${carSal}</td>
+                                    <td class="text-center">
+                                        ${botonHtml}
+                                    </td>
+                                </tr>
+                            `;
+                            $('#tbodyCargasSalida').append(fila);
+                        });
+                        
+                        $('#tablaContent').show();
+                        inicializarPaginacion();
+                        reasignarEventHandlers();
+                    } else {
+                        $('#errorText').text(response.message || 'Error al cargar las cargas de salida vírgenes');
+                        $('#errorMessage').show();
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#loadingIndicator').hide();
+                    $('#errorText').text('Error al comunicarse con el servidor: ' + error);
+                    $('#errorMessage').show();
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            cargarOperadores();
+            cargarDatosCargasSalida();
+
+            $('#buscarCarSal').on('input', function() {
+                aplicarFiltro();
+            });
+
+            $('#btnValidarYAsignar').on('click', function() {
+                const carSal = $('#asignar_car_sal').val();
+                const rfcOpe = $('#asignar_rfc_ope').val();
+                const codEmp = $('#asignar_rfc_ope option:selected').data('cod-emp') || 1;
+                
+                if (!carSal || carSal.trim() === '') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'No se encontró la carga de salida'
+                    });
+                    return;
+                }
+
+                if (!rfcOpe || rfcOpe.trim() === '') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'Seleccione un operador'
+                    });
+                    return;
+                }
+
+                const btn = $(this);
+                btn.prop('disabled', true);
+                btn.html('<span class="spinner-border spinner-border-sm" role="status"></span> Validando...');
+
+                const token = $('#token-form input[name="__RequestVerificationToken"]').val();
+                
+                const asignacion = {
+                    cod_emp: codEmp,
+                    pto_alm: '870',
+                    car_sal: carSal.trim(),
+                    rfc_ope: rfcOpe.trim(),
+                    estatus: 0
+                };
+
+                $.ajax({
+                    url: '@Url.Action("AsignarRuta", "RouteOperator")',
+                    type: 'POST',
+                    data: asignacion,
+                    headers: {
+                        'RequestVerificationToken': token
+                    },
+                    success: function(assignResponse) {
+                        if (assignResponse.success) {
+                            const modal = bootstrap.Modal.getInstance(document.getElementById('modalAsignarRuta'));
+                            if (modal) modal.hide();
+                            
+                            btn.prop('disabled', false);
+                            btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
+                            
+                            const mensaje = assignResponse.message || 'Ruta asignada correctamente';
+                            const seEliminoRutaAnterior = mensaje.includes('Se eliminó la asignación previa');
+                            
+                            Swal.fire({
+                                icon: 'success',
+                                title: 'Éxito',
+                                text: mensaje,
+                                confirmButtonText: 'Aceptar',
+                                timer: seEliminoRutaAnterior ? null : 2000,
+                                showConfirmButton: true,
+                                allowOutsideClick: false
+                            }).then(() => {
+                                // Obtener la información de la asignación y cambiar el botón
+                                $.ajax({
+                                    url: '@Url.Action("GetAsignacionPorCarSalJson", "RouteOperator")',
+                                    type: 'GET',
+                                    data: { carSal: carSal },
+                                    success: function(asignacionResponse) {
+                                        if (asignacionResponse.success && asignacionResponse.asignacion) {
+                                            cambiarBotonADetalle(carSal, asignacionResponse.asignacion);
+                                        } else {
+                                            refrescarTablaCargasSalida();
+                                        }
+                                    },
+                                    error: function() {
+                                        refrescarTablaCargasSalida();
+                                    }
+                                });
+                            });
+                        } else {
+                            const mensajeError = assignResponse.message || 'Error al asignar la ruta';
+                            const tieneRutasActivas = mensajeError.includes('rutas activas') || mensajeError.includes('aún no están cerradas');
+                            
+                            if (tieneRutasActivas) {
+                                $.ajax({
+                                    url: '@Url.Action("GetRutasConScn", "RouteOperator")',
+                                    type: 'GET',
+                                    data: { rfcOpe: rfcOpe },
+                                    success: function(rutasResponse) {
+                                        if (rutasResponse.success && rutasResponse.rutas && rutasResponse.rutas.length > 0) {
+                                            let html = '<div class="alert alert-warning mb-3"><strong>El operador tiene rutas activas que aún no están cerradas:</strong></div>';
+                                            
+                                            rutasResponse.rutas.forEach(function(ruta) {
+                                                html += `
+                                                    <div class="card mb-3">
+                                                        <div class="card-header bg-light">
+                                                            <strong>Carga de Salida:</strong> ${ruta.car_sal || '-'}
+                                                        </div>
+                                                        <div class="card-body">
+                                                            <strong>SCNs (${ruta.scns ? ruta.scns.length : 0}):</strong>
+                                                            <div class="mt-2">
+                                                                ${ruta.scns && ruta.scns.length > 0 ? ruta.scns.map(scn => `<span class="badge bg-secondary me-1">${scn}</span>`).join('') : '<span class="text-muted">N/A</span>'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                `;
+                                            });
+                                            
+                                            $('#rutasConScnContent').html(html);
+                                            
+                                            const modalAsignar = bootstrap.Modal.getInstance(document.getElementById('modalAsignarRuta'));
+                                            if (modalAsignar) modalAsignar.hide();
+                                            
+                                            const modalRutas = new bootstrap.Modal(document.getElementById('modalRutasConScn'));
+                                            modalRutas.show();
+                                        } else {
+                                            Swal.fire({
+                                                icon: 'error',
+                                                title: 'Error',
+                                                text: mensajeError
+                                            });
+                                        }
+                                        btn.prop('disabled', false);
+                                        btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
+                                    },
+                                    error: function() {
+                                        Swal.fire({
+                                            icon: 'error',
+                                            title: 'Error',
+                                            text: mensajeError
+                                        });
+                                        btn.prop('disabled', false);
+                                        btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
+                                    }
+                                });
+                            } else {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: mensajeError
+                                });
+                                btn.prop('disabled', false);
+                                btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
+                            }
+                        }
+                    },
+                    error: function(xhr, status, error) {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: 'Error al comunicarse con el servidor'
+                        });
+                        btn.prop('disabled', false);
+                        btn.html('<i class="bi bi-check-circle"></i> Validar y Asignar');
+                    }
+                });
+            });
+
+            // Handler para eliminar asignación
+            $('#btnEliminarAsignacion').on('click', function() {
+                const carSal = $('#detalle_car_sal').val();
+                
+                if (!carSal || carSal.trim() === '') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'Validación',
+                        text: 'No se encontró información de la asignación para eliminar'
+                    });
+                    return;
+                }
+
+                Swal.fire({
+                    icon: 'warning',
+                    title: '¿Eliminar asignación?',
+                    text: `¿Está seguro de que desea eliminar la asignación de la carga de salida "${carSal.trim()}"?`,
+                    showCancelButton: true,
+                    confirmButtonText: 'Sí, eliminar',
+                    cancelButtonText: 'Cancelar',
+                    confirmButtonColor: '#dc3545'
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        const btn = $('#btnEliminarAsignacion');
+                        btn.prop('disabled', true);
+                        btn.html('<span class="spinner-border spinner-border-sm" role="status"></span> Eliminando...');
+
+                        const token = $('#token-form input[name="__RequestVerificationToken"]').val();
+
+                        $.ajax({
+                            url: '@Url.Action("EliminarAsignacion", "RouteOperator")',
+                            type: 'POST',
+                            data: { carSal: carSal.trim() },
+                            headers: {
+                                'RequestVerificationToken': token
+                            },
+                            success: function(response) {
+                                if (response.success) {
+                                    const modal = bootstrap.Modal.getInstance(document.getElementById('modalDetalleAsignacion'));
+                                    if (modal) modal.hide();
+                                    
+                                    btn.prop('disabled', false);
+                                    btn.html('<i class="bi bi-trash"></i> Eliminar Asignación');
+                                    
+                                    Swal.fire({
+                                        icon: 'success',
+                                        title: 'Éxito',
+                                        text: response.message || 'Asignación eliminada correctamente',
+                                        confirmButtonText: 'Aceptar',
+                                        timer: 2000,
+                                        showConfirmButton: true
+                                    }).then(() => {
+                                        // Cambiar el botón de detalle a asignar
+                                        const fila = $(`.fila-car-sal[data-car-sal="${carSal}"]`);
+                                        const tdAcciones = fila.find('td:last-child');
+                                        
+                                        tdAcciones.html(`
+                                            <button type="button" class="btn btn-sm btn-primary btn-asignar-ruta" 
+                                                    data-car-sal="${carSal}"
+                                                    title="Asignar ruta">
+                                                <i class="bi bi-arrow-right-circle-fill"></i>
+                                            </button>
+                                        `);
+                                        reasignarEventHandlers();
+                                        
+                                        // Actualizar las listas para paginación
+                                        const item = todasLasCargasSalida.find(i => i.carSal === carSal);
+                                        if (item) {
+                                            item.elemento = fila;
+                                        }
+                                    });
+                                } else {
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Error',
+                                        text: response.message || 'Error al eliminar la asignación'
+                                    });
+                                    btn.prop('disabled', false);
+                                    btn.html('<i class="bi bi-trash"></i> Eliminar Asignación');
+                                }
+                            },
+                            error: function(xhr, status, error) {
+                                Swal.fire({
+                                    icon: 'error',
+                                    title: 'Error',
+                                    text: 'Error al comunicarse con el servidor'
+                                });
+                                btn.prop('disabled', false);
+                                btn.html('<i class="bi bi-trash"></i> Eliminar Asignación');
+                            }
+                        });
+                    }
+                });
+            });
+        });
+    </script>
+}
+

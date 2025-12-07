@@ -67,6 +67,7 @@ namespace BL.Menu
                 new("Busqueda", "BaseControl", "GetOrdersPerData", "bi-search"),
                 new("BaseControl", "BaseControl", "BaseControl", "bi-clipboard-check"),
                 new("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"),
+                new("BaseOperador", "BaseControl", "BaseOperatorGetOpenRoutes", "bi-clipboard-check bi-people"),
                 new("Mantenimiento", "Maintenance", "InfoByScn", "bi-geo-alt"),
                 new("Pend. Confirmacion", "Maintenance", "GetToConfirm", "bi-calendar-check"),
                 new("Carta Porte", "CartaPorte", "Index", "bi-file-earmark-text bi-truck"),

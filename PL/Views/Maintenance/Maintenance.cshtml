@@ -519,6 +519,7 @@
 
 @section Scripts {
     <script>
+
         function showLoader() {
             $("#loadingOverlay").css("display", "flex");
         }
@@ -564,7 +565,7 @@
             return ok.includes(estado1);
         }
 
-        document.addEventListener('DOMContentLoaded', () => {
+                document.addEventListener('DOMContentLoaded', () => {
             const estText = estatusGnx(model.Estado1);
             const el = document.getElementById('estatusGnxText');
             if (el) {
@@ -574,7 +575,7 @@
             const fechaCalc = pickFecha(model.FecEntOriginal, model.FecCli, model.FecEntR);
             if (fechaCalc) {
                 document.getElementById('fechaElegida').value = fechaCalc;
-                document.querySelector('input[name="FecEnt"]').value = fechaCalc; 
+                document.querySelector('input[name="FecEnt"]').value = fechaCalc;
             }
 
             setSNHiddenFields();
@@ -587,10 +588,16 @@
             const orig = '@Model.ColoniaOriginal';
             if (orig && orig.trim() !== '') {
                 document.getElementById('OriginalColonia').textContent = 'Original: ' + orig;
-            } else {
-
             }
+
+            document.querySelector('input[name="IsConfirmed"]').value =
+                document.getElementById('switchIsConfirmed').checked ? 'true' : 'false';
+
+            document.getElementById('switchIsConfirmed').addEventListener('change', function () {
+                document.querySelector('input[name="IsConfirmed"]').value = this.checked ? 'true' : 'false';
+            });
         });
+
 
         // ----------------------
         // Funciones de fecha
@@ -821,7 +828,7 @@
                     gnxDiv.innerHTML = `<small style="color:red;">No se puede dar mantenimiento, orden en genesix ${estatGnx}</small>`;
                     reasons.push(`El estatus de GNX no es válido (${estatGnx})`);
                 } else {
-                    
+
                 }
             }
 
@@ -973,14 +980,17 @@
         }
 
         // ----------------------
-        // Envío del form 
+        // Envío del form
         // ----------------------
         document.getElementById('maintenanceForm').addEventListener('submit', function (e) {
             e.preventDefault();
 
-            console.log('Valor actual de IsPosfec:', document.querySelector('input[name="IsPosfec"]').value);
+            document.querySelector('input[name="IsConfirmed"]').value =
+                document.getElementById('switchIsConfirmed').checked ? 'true' : 'false';
 
-            // Llenar campos que si están vacíos mandan "X"
+            document.querySelector('input[name="IsCrb"]').value =
+                document.getElementById('switchIsCrb').checked ? 'true' : 'false';
+
             if (!document.getElementById('NumInt').value.trim()) document.getElementById('NumInt').value = 'X';
             if (!document.getElementById('Calle').value.trim()) document.getElementById('Calle').value = 'X';
             if (!document.getElementById('Referencias').value.trim()) document.getElementById('Referencias').value = 'X';
@@ -990,15 +1000,13 @@
             const lat = parseFloat(document.getElementById('Latitud').value);
             if (isNaN(lon) || isNaN(lat) || (lon === 0 && lat === 0)) {
                 Swal.fire({ icon: 'warning', title: 'Coordenadas inválidas', text: 'Las coordenadas no pueden ser 0,0 o vacías.' });
-                return; 
+                return;
             }
 
-            // Colonia: si dropdown vacio y existe original, mandar original, si no pedir obligatorio
             const colSel = document.getElementById('ColoniaDropdown').value;
             if (!colSel) {
                 const orig = document.getElementById('OriginalColonia')?.textContent.replace('Original: ', '').trim();
                 if (orig && orig.trim() !== '') {
-                    // crear campo oculto para enviar original
                     const hiddenCol = document.createElement('input');
                     hiddenCol.type = 'hidden';
                     hiddenCol.name = 'Colonia';
@@ -1010,19 +1018,15 @@
                 }
             }
 
-            // Fecha e IsPosfec
             const fechaElegida = document.getElementById('fechaElegida').value;
-
             if (fechaElegida) {
-                const partes = fechaElegida.split('-'); // [yyyy, MM, dd]
-                const fechaFormateada = partes[2] + partes[1] + partes[0]; // ddMMyyyy
+                const partes = fechaElegida.split('-');
+                const fechaFormateada = partes[2] + partes[1] + partes[0];
                 document.querySelector('input[name="FecEnt"]').value = fechaFormateada;
             }
 
-            // IsConfirmed y IsCrb ya están en hidden
-            setSNHiddenFields(); // asegurar xd
+            setSNHiddenFields();
 
-            // Última validación: NumExt obligatorio
             if (!document.getElementById('NumExt').value.trim()) {
                 Swal.fire({ icon: 'error', title: 'Error', text: 'NumExt es obligatorio.' });
                 return;
@@ -1031,21 +1035,10 @@
             const visible = $("#rddSection").css("display") !== "none";
             document.getElementById("IsRdd").value = visible ? "true" : "false";
 
-            // // Revalidar reglas de bloqueo
-            // applyRestrictions();
-            // if (document.getElementById('btnGuardar').disabled) {
-            //     Swal.fire({ icon: 'error', title: 'No permitido', text: 'No se puede guardar por las restricciones mostradas.' });
-            //     return;
-            // }
-
-            // Enviar form (POST)
-            // console.log('Valor actual de IsPosfec:',document.querySelector('input[name="IsPosfec"]').value);
-
-
             showLoader();
 
             const formData = new FormData(this);
-                fetch('/Maintenance/UpdateScnInfo', { method: 'POST', body: formData })
+            fetch('/Maintenance/UpdateScnInfo', { method: 'POST', body: formData })
                 .then(r => {
                     if (!r.ok) throw new Error('error al guardar');
                     return r.json();
@@ -1057,14 +1050,14 @@
                     } else {
                         Swal.fire({ icon: 'error', title: 'No guardado', text: res.message || 'Error desconocido.' });
                     }
-            })
-            .catch(err => {
-                console.error(err);
-                Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al guardar.' });
-            })
-            .finally(() => hideLoader());;
-
+                })
+                .catch(err => {
+                    console.error(err);
+                    Swal.fire({ icon: 'error', title: 'Error', text: 'Ocurrió un error al guardar.' });
+                })
+                .finally(() => hideLoader());
         });
+
 
         function limpiarVistaScn() {
 
@@ -1272,3 +1265,5 @@
 
     </script>
 }
+
+

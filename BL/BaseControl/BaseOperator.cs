@@ -1,4 +1,6 @@
-﻿using System;
+﻿using ML;
+using ML.BaseControl;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Data.Odbc;
@@ -59,23 +61,23 @@ namespace BL.BaseControl
                     connection.Open();
 
                     string query = $@"SELECT  A.estatus,
-                                    CASE
-                                    WHEN (A.estatus = 0) THEN 'Ruta asignada'
-                                    WHEN (A.estatus = 1) THEN 'Ruta Cerrada'
-                                    WHEN (A.estatus = 2) THEN 'Ruta Abierta'
-                                    WHEN (A.estatus = 3) THEN 'Ruta Finalizada'
-                                    ELSE 'No Listado'
-                                    END AS descripcion,
-                                    A.pto_alm,
-                                    TRIM(A.car_sal) AS car_sal,
-                                    C.fec_car,
-                                    TRIM(B.nom_ope) AS nom_ope,
-                                    TRIM(A.rfc_ope) AS rfc_ope
-                            FROM ora_asignacion_operador A, ora_operadores B
-                            WHERE A.estatus IN (2,3)
-                            AND B.rfc_ope = A.rfc_ope
-                            AND C.car_sal = A.car_sal
-                            GROUP BY 1,2,3,4,5,6,7";
+                                            CASE
+                                            WHEN (A.estatus = 0) THEN 'Ruta asignada'
+                                            WHEN (A.estatus = 1) THEN 'Ruta Cerrada'
+                                            WHEN (A.estatus = 2) THEN 'Ruta Abierta'
+                                            WHEN (A.estatus = 3) THEN 'Ruta Finalizada'
+                                            ELSE 'No Listado'
+                                            END AS descripcion,
+                                            A.pto_alm,
+                                            TRIM(A.car_sal) AS car_sal,
+                                            C.fec_car,
+                                            TRIM(B.nom_ope) AS nom_ope,
+                                            TRIM(A.rfc_ope) AS rfc_ope
+                                    FROM ora_asignacion_operador A, ora_operadores B, ora_ruta C
+                                    WHERE A.estatus IN (2,3)
+                                    AND B.rfc_ope = A.rfc_ope
+                                    AND C.car_sal = A.car_sal
+                                    GROUP BY 1,2,3,4,5,6,7";
 
                     List<ML.Operator.RouteHeader> routes = new List<ML.Operator.RouteHeader>();
 
@@ -126,14 +128,97 @@ namespace BL.BaseControl
                 {
                     connection.Open();
 
+                    string query = $@"SELECT CASE
+                                        WHEN(C.fec_act IS NULL) THEN B.fec_car
+                                        ELSE C.fec_act 
+		                                END AS fec_act,
+                                        TRIM(A.car_sal) AS car_sal,
+                                        TRIM(B.ord_rel) AS ord_rel,
+                                        B.num_scn,
+                                        E.cod_pto,
+                                        F.cod_cli,
+                                        UPPER(TRIM(F.nom_cli)||' '||TRIM(F.ape1_cli)||' '||TRIM(F.ape2_cli)) AS cliente,
+                                        CASE
+                                        WHEN (C.cod_mot IS NULL) THEN 'Sin marcaje'
+                                        ELSE 'Evento Asignado' 
+		                                END as estatus_ruta,
+                                        CASE
+                                        WHEN E.estado = 'P' THEN E.estado||'-Retenido-Transito'
+                                        WHEN E.estado = 'T' THEN E.estado||'-Transito'
+                                        WHEN E.estado = 'I' THEN E.estado||'-Impreso'
+                                        WHEN E.estado = 'X' THEN E.estado||'-Cancelado'
+                                        WHEN E.estado = 'C' THEN E.estado||'-Cancelado'
+                                        WHEN E.estado = 'E' THEN E.estado||'-Entregado'
+                                        WHEN E.estado = 'D' THEN E.estado||'-Devuelto'
+                                        WHEN E.estado = 'G' THEN E.estado||'-Generado'
+                                        ELSE E.estado||'-Estado desconocido'
+                                        END AS estatus_gnx,
+                                        'Ruta Trabajandose' AS estatus_rt,
+                                        CASE
+                                        WHEN (C.cod_mot IS NULL) THEN 'No marcado aun'
+                                        ELSE TRIM(D.des_mot) 
+		                                END AS des_mot,
+                                        CASE
+                                        WHEN(G.scn_nvo IS NULL) THEN 'NO'
+                                        ELSE 'Es un RDD de cambio' 
+		                                END AS rdd_info
+                                FROM ora_asignacion_operador A
+                                INNER JOIN ora_ruta B
+                                         ON B.pto_alm = A.pto_alm
+                                        AND B.car_sal = A.car_sal
+                                LEFT JOIN ora_ruta_eventos C
+                                         ON C.pto_alm = B.pto_alm
+                                        AND C.car_sal = B.car_sal
+                                        AND C.ord_rel = B.ord_rel
+                                        AND C.num_scn = B.num_scn
+                                LEFT  JOIN ora_motivos_rt D
+                                        ON D.cod_mot = C.cod_mot
+                                INNER JOIN edc_cab E
+                                         ON E.cod_emp = 1
+                                        AND E.num_scn = B.num_scn
+                                LEFT JOIN clientes F
+                                         ON F.cod_emp = E.cod_emp
+                                        AND F.cod_cli = E.cod_cli
+                                LEFT JOIN rdd_cab G
+                                         ON G.cod_emp = E.cod_emp
+                                        AND G.scn_nvo = E.num_scn
+                                WHERE A.pto_alm  = {route.PtoAlm}
+                                AND A.car_sal = '{route.CarSal}'
+                                AND A.rfc_ope = '{route.RfcOpe}'";
+                    
+                    List<ML.Operator.RouteDetail> routeDetailList = new List<ML.Operator.RouteDetail>();    
+
+                    using(OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        using(OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            ML.Operator.RouteDetail routeDetail = new ML.Operator.RouteDetail();
+
+                            routeDetail.FecAct = reader.GetDateTime(0).ToString();
+                            routeDetail.CarSal = reader.GetString(1);
+                            routeDetail.OrdRel = reader.GetString(2);
+                            routeDetail.NumScn = reader.GetString(3);
+                            routeDetail.CodPto = reader.GetString(4);
+                            routeDetail.CodCli = reader.GetString(5);
+                            routeDetail.Cliente = reader.GetString(6);
+                            routeDetail.EstatusRuta = reader.GetString(7);
+                            routeDetail.EstatusGnx = reader.GetString(8).Trim();
+                            routeDetail.EstatusRT = reader.GetString(9);
+                            routeDetail.Motivo = reader.GetString(10);
+                            routeDetail.RddInfo = reader.GetString(11).Trim();
+
+                            routeDetailList.Add(routeDetail);
+                        }
+                    }
+
                     result.Correct = true;
-                    //result.Object = orderList;
+                    result.Object = routeDetailList;
                 }
             }
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = $@"Se obtuvo un error al consultar los viajes.";
+                result.Message = $@"Se obtuvo un error al consultar el detalle de la ruta.";
             }
             return result;
         }
@@ -154,12 +239,231 @@ namespace BL.BaseControl
             ML.Result result = new ML.Result();
             try
             {
-
+                //GetConfirmations
+                //Confirmation
+                //BuilData
+                //BuildDetail
+                //CreateFile
+                //UpdateRuta
             }
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = $@"Error al confirmar las ruta";
+                result.Message = $@"Error al confirmar las rutas";
+            }
+            return result;
+        }
+        private static ML.Result GetConfirmations(string user, string shipment, string cod_pto, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                List<ML.BaseControl.Confirmation> confirmationList = new List<ML.BaseControl.Confirmation>();
+
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string query = $@"SELECT TRIM(ord_rel)
+                                        FROM ora_ruta
+                                        WHERE pto_alm = {cod_pto}
+                                        AND estatus = 0";
+
+                    using (OdbcCommand command = new OdbcCommand(query, connection))
+                    {
+                        using (OdbcDataReader reader = command.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                ML.BaseControl.Confirmation confirmation = new ML.BaseControl.Confirmation();
+
+                                confirmation.OrdRel = reader.GetString(0);
+                                confirmation.Shipment = shipment;
+                                confirmation.DeliveryReason = "0";
+                                confirmation.User = user;
+
+                                confirmationList.Add(confirmation);
+                            }
+                        }
+                    }
+                }
+
+                result.Correct = true;
+                result.Message = $@"";
+                result.Object = confirmationList;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Ex = ex;
+                result.Message = $@"Error al obtener confirmaciones: {ex.Message}";
+            }
+            return result;
+        }
+        private static ML.Result BuildData(List<OrderResult> orderDetails, ML.BaseControl.Confirmation confirmation, string mode)
+        {
+            Result result = new Result();
+            try
+            {
+                ML.BaseControl.Interface inter = new ML.BaseControl.Interface();
+
+                inter.Control = new ML.BaseControl.InterfaceControl();
+
+                inter.Control.OrdRel = confirmation.OrdRel;
+                inter.Control.User = confirmation.User;
+                inter.Control.Reason = confirmation.DeliveryReason;
+
+                inter.Header = new ML.BaseControl.InterfaceHeader();
+                inter.Header.Shipment = confirmation.Shipment;
+
+                inter.Details = BuildDetail(orderDetails, confirmation);
+
+                result.Correct = true;
+                result.Object = inter;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al construir data {confirmation.OrdRel}: {ex.Message}";
+                Console.WriteLine(result.Message);
+            }
+            return result;
+        }
+        private static List<InterfaceDetail> BuildDetail(List<OrderResult> orderDetails, ML.BaseControl.Confirmation confirmation)
+        {
+            List<InterfaceDetail> interDetails = new List<InterfaceDetail>();
+
+            foreach (OrderResult orderResult in orderDetails)
+            {
+                InterfaceDetail interDetail = new InterfaceDetail();
+
+                interDetail.Reason = confirmation.DeliveryReason;
+                interDetail.Shipment = confirmation.Shipment;
+
+                interDetail.Olpn = orderResult.Olpn;
+                interDetail.Sku = orderResult.Sku.Replace("SRS", "");
+                interDetail.Cantidad = orderResult.Quantity.ToString();
+                interDetail.Cantidad2 = interDetail.Cantidad;
+
+                interDetails.Add(interDetail);
+            }
+            return interDetails;
+        }
+        private static Result CreateFile(ML.BaseControl.Interface inter, string user, string mode)
+        {
+            Result result = new Result();
+            string dateTime = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+            string fileName = $@"SE_LEGACY_ENTREGA_{user}_{dateTime}.csv";
+            string filePath = Path.Combine(DL.Directory.GetOutputPath(mode), fileName);
+            //string filePath = Path.Combine("C:\\Users\\Sistemas piso6 3\\Downloads", fileName);
+            try
+            {
+                string C = string.Join("|", typeof(ML.BaseControl.InterfaceControl).GetProperties().Select(p => p.GetValue(inter.Control)).ToArray());
+                string H = string.Join("|", typeof(ML.BaseControl.InterfaceHeader).GetProperties().Select(p => p.GetValue(inter.Header)).ToArray());
+
+                List<string> D = new List<string>();
+
+                foreach (ML.BaseControl.InterfaceDetail detail in inter.Details)
+                {
+                    string deta = string.Join("|", typeof(ML.BaseControl.InterfaceDetail).GetProperties().Select(p => p.GetValue(detail)).ToArray());
+                    D.Add(deta);
+                }
+
+                using (StreamWriter writer = new StreamWriter(filePath))
+                {
+                    writer.WriteLine(C);
+                    writer.WriteLine(H);
+                    foreach (string d in D)
+                    {
+                        writer.WriteLine(d);
+                    }
+                }
+
+                result.Correct = true;
+                result.Object = filePath;
+                //Console.WriteLine("Se creo el archivo " + filePath);
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = "Error al crear el archivo " + fileName + ": " + ex.Message;
+                //Console.WriteLine(result.Message);
+            }
+            return result;
+        }
+        private static ML.Result UpdateRuta(string ord_rel, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string query = $@"UPDATE
+                                            ora_ruta
+                                        SET estatus = 2
+                                        WHERE ord_rel = '{ord_rel}'
+                                        ";
+
+                    List<ML.BaseControl.Reason> reasonList = new List<ML.BaseControl.Reason>();
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected < 1)
+                        {
+
+                        }
+                    }
+
+                    result.Correct = true;
+                    result.Message = $@"Se bloqueo el registro";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"No pudo bloquearse el registro";
+            }
+            return result;
+        }
+
+
+        private static ML.Result AcceptRoute(ML.Operator.RouteHeader route, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string query = $@"UPDATE
+                                             ora_asignacion_operador
+                                        SET estatus = 1
+                                        WHERE cod_emp = 1
+                                        AND pto_alm = {route.PtoAlm}
+                                        AND car_sal = '{route.CarSal}'
+                                        AND rfc_ope = '{route.RfcOpe}'
+                                        AND estatus = 3
+                                        ";
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected < 1)
+                        {
+                            throw new Exception($@"No se pudo aceptar la ruta");
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al aceptar la ruta";
             }
             return result;
         }
@@ -183,7 +487,7 @@ namespace BL.BaseControl
 
                     string query = $@"UPDATE
                                              ora_asignacion_operador
-                                        SET estatus = 1
+                                        SET estatus = 2
                                         WHERE cod_emp = 1
                                         AND pto_alm = {route.PtoAlm}
                                         AND car_sal = '{route.CarSal}'

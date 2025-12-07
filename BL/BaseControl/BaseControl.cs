@@ -191,6 +191,7 @@ namespace BL.BaseControl
 	                                    WHEN B.estado = 'T' THEN B.estado||C.estado||'-Transito'
 	                                    WHEN B.estado = 'I' THEN B.estado||C.estado||'-Impreso'
 	                                    WHEN B.estado = 'X' THEN B.estado||C.estado||'-Cancelado'
+	                                    WHEN B.estado = 'C' THEN B.estado||C.estado||'-Cancelado'
 	                                    WHEN B.estado = 'E' THEN B.estado||C.estado||'-Entregado'
 	                                    WHEN B.estado = 'D' THEN B.estado||C.estado||'-Devuelto'
 	                                    WHEN B.estado = 'G' THEN B.estado||C.estado||'-Generado'

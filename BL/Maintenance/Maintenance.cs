@@ -567,7 +567,7 @@ namespace BL.Maintenance
                             throw resultGetTope.Ex;
                         }
 
-                        var (ok, mensaje) = ((bool, string))result.Object;
+                        var (ok, mensaje) = ((bool, string))resultGetTope.Object;
                         if (!ok)
                         {
                             throw new Exception($"{mensaje}");

@@ -8,6 +8,7 @@ using System.Collections.Generic;
 using System.Data.Odbc;
 using System.Data.SqlClient;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -20,6 +21,8 @@ namespace BL.Resender
             ML.Result result = new ML.Result();
             try
             {
+                System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+
                 using (SqlConnection connection = new SqlConnection())
                 {
                     connection.ConnectionString = DL.Connection.GetConnectionStringSig(mode);
@@ -127,6 +130,8 @@ namespace BL.Resender
             Result result = new Result();
             try
             {
+                System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+
                 using (SqlConnection connection = new SqlConnection())
                 {
                     connection.ConnectionString = DL.Connection.GetConnectionStringSig(mode);
@@ -253,6 +258,8 @@ namespace BL.Resender
             Result result = new Result();
             try
             {
+                System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+
                 using (SqlConnection connection = new SqlConnection())
                 {
                     connection.ConnectionString = DL.Connection.GetConnectionStringSig(mode);

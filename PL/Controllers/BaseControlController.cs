@@ -201,7 +201,7 @@ namespace PL.Controllers
                 return Unauthorized();
             }
 
-            ML.Result result = BL.BaseControl.BaseOperator.MultiConfirmation(route, mode);
+            ML.Result result = await BL.BaseControl.BaseOperator.MultiConfirmation(route, usuId, mode);
 
             return Json(new
             {
@@ -211,7 +211,7 @@ namespace PL.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> RejectRoute([FromBody] ML.Operator.RouteHeader route)
+        public IActionResult RejectRoute([FromBody] ML.Operator.RouteHeader route)
         {
             var usuId = HttpContext.Session.GetString("usu_id");
             if (string.IsNullOrEmpty(usuId))

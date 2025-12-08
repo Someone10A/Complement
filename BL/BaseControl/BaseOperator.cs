@@ -5,9 +5,11 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Odbc;
 using System.Linq;
+using System.Net.Http.Headers;
 using System.Net.NetworkInformation;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace BL.BaseControl
@@ -85,17 +87,20 @@ namespace BL.BaseControl
                     {
                         using(OdbcDataReader reader = cmd.ExecuteReader())
                         {
-                            ML.Operator.RouteHeader route = new ML.Operator.RouteHeader();
+                            while (reader.Read())
+                            {
+                                ML.Operator.RouteHeader route = new ML.Operator.RouteHeader();
 
-                            route.Estatus = reader.GetString(0);
-                            route.Descripcion = reader.GetString(1);
-                            route.PtoAlm = reader.GetString(2);
-                            route.CarSal = reader.GetString(3);
-                            route.FecCar = reader.GetDateTime(4).ToString("ddMMyyyy");
-                            route.NomOpe = reader.GetString(5);
-                            route.RfcOpe = reader.GetString(6);
+                                route.Estatus = reader.GetString(0);
+                                route.Descripcion = reader.GetString(1);
+                                route.PtoAlm = reader.GetString(2);
+                                route.CarSal = reader.GetString(3);
+                                route.FecCar = reader.GetDateTime(4).ToString("ddMMyyyy");
+                                route.NomOpe = reader.GetString(5);
+                                route.RfcOpe = reader.GetString(6);
 
-                            routes.Add(route);
+                                routes.Add(route);
+                            }
                         }
                     }
 
@@ -233,27 +238,74 @@ namespace BL.BaseControl
          *                  generar una interfaz contemplar diseño en BaseControl.BaseControl
          *                  Confirmation,BuilData,BuildDetail,CreateFile,UpdateRuta
          *                  Ademas de cerrar ruta ora_asignacion_operador a 1
+         *                  NOTA: a Multiconfirmation solo llegaran rutas que tengan estatus finalizado, no deben llegar otras rutas
          */
-        public static ML.Result MultiConfirmation(ML.Operator.RouteHeader route, string mode)
+        public static async Task<ML.Result> MultiConfirmation(ML.Operator.RouteHeader route,string user, string mode)
         {
             ML.Result result = new ML.Result();
             try
             {
                 //GetConfirmations
+                ML.Result resultGetConfirmations = GetConfirmations(route.CarSal, route.PtoAlm, user, mode);
+                if (!resultGetConfirmations.Correct)
+                {
+                    throw new Exception($@"{resultGetConfirmations.Message}");
+                }
+                List<ML.BaseControl.Confirmation> confirmationList = (List<ML.BaseControl.Confirmation>)resultGetConfirmations.Object;
+
+                List<ML.BaseControl.Interface> interList = new List<ML.BaseControl.Interface>();
+
                 //Confirmation
-                //BuilData
-                //BuildDetail
-                //CreateFile
-                //UpdateRuta
+                foreach (ML.BaseControl.Confirmation confirmation  in confirmationList)
+                {
+                    //GetData
+                    ML.Result resultGetDetails = await GetDetails(confirmation.OrdRel, mode);
+                    if (!resultGetDetails.Correct)
+                    {
+                        throw resultGetDetails.Ex;
+                    }
+                    List<OrderResult> orderDetails = (List<OrderResult>)resultGetDetails.Object;
+
+                    //BuildDetail
+                    ML.Result resultBuildData = BuildData(orderDetails, confirmation, mode);
+                    if (!resultBuildData.Correct)
+                    {
+                        throw resultBuildData.Ex;
+                    }
+                    ML.BaseControl.Interface inter = (ML.BaseControl.Interface)resultBuildData.Object;
+
+                    interList.Add(inter);
+                }
+
+                foreach(ML.BaseControl.Interface inter in  interList)
+                {
+                    ML.Result resultCreateFile = CreateFile(inter, user, mode);
+                    if (!resultCreateFile.Correct)
+                    {
+                        throw resultCreateFile.Ex;
+                    }
+                    Thread.Sleep(500);
+                }
+
+                ML.Result resultUpdateRoute = UpdateRoute(route.CarSal, mode);
+
+                ML.Result resultAcceptRoute = AcceptRoute(route, mode);
+                if (!resultAcceptRoute.Correct)
+                {
+                    throw new Exception($@"{result.Message}");
+                }
+
+                result.Correct = true;
+                result.Message = $@"Se crearon {confirmationList.Count()} interfaces y bloqueo la ruta.";
             }
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = $@"Error al confirmar las rutas";
+                result.Message = $@"Error al confirmar las rutas {ex.Message}";
             }
             return result;
         }
-        private static ML.Result GetConfirmations(string user, string shipment, string cod_pto, string mode)
+        private static ML.Result GetConfirmations(string carSal, string ptoAlm,string user, string mode)
         {
             ML.Result result = new ML.Result();
             try
@@ -266,7 +318,8 @@ namespace BL.BaseControl
 
                     string query = $@"SELECT TRIM(ord_rel)
                                         FROM ora_ruta
-                                        WHERE pto_alm = {cod_pto}
+                                        WHERE pto_alm = {ptoAlm}
+                                        AND car_sal = '{carSal}'
                                         AND estatus = 0";
 
                     using (OdbcCommand command = new OdbcCommand(query, connection))
@@ -278,8 +331,8 @@ namespace BL.BaseControl
                                 ML.BaseControl.Confirmation confirmation = new ML.BaseControl.Confirmation();
 
                                 confirmation.OrdRel = reader.GetString(0);
-                                confirmation.Shipment = shipment;
-                                confirmation.DeliveryReason = "0";
+                                confirmation.Shipment = carSal;
+                                confirmation.DeliveryReason = reader.GetString(1);
                                 confirmation.User = user;
 
                                 confirmationList.Add(confirmation);
@@ -297,6 +350,54 @@ namespace BL.BaseControl
                 result.Correct = false;
                 result.Ex = ex;
                 result.Message = $@"Error al obtener confirmaciones: {ex.Message}";
+            }
+            return result;
+        }
+        private static async Task<ML.Result> GetDetails(string ordRel, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (HttpClient client = new HttpClient())
+                {
+                    client.Timeout = TimeSpan.FromSeconds(5);
+
+                    var byteArray = Encoding.ASCII.GetBytes($"{DL.ApiOracle.GetOracleUsr(mode)}:{DL.ApiOracle.GetOraclePwd(mode)}");
+                    client.DefaultRequestHeaders.Accept.Clear();
+                    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+                    client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", $"{Convert.ToBase64String(byteArray)}");
+
+                    Uri uri = new Uri($@"{DL.ApiOracle.GetEndpoint(mode)}".Replace("{########}", ordRel));
+
+                    HttpResponseMessage response = await client.GetAsync(uri);
+
+                    if (response.IsSuccessStatusCode)
+                    {
+
+                        string jsonString = await response.Content.ReadAsStringAsync();
+
+                        ML.BaseControl.ApiResponse apiResponse = JsonSerializer.Deserialize<ML.BaseControl.ApiResponse>(jsonString);
+
+                        result.Correct = true;
+                        result.Object = apiResponse.Results.Where(x => x.OrderStatus == "Shipped").ToList();
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Error al hacer la petición: {(int)response.StatusCode} - {response.ReasonPhrase}");
+                        result.Correct = false;
+                    }
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                Console.WriteLine($"Se obtuvo un error al consultar los detalles de envio: tiempo exedido.");
+                result.Correct = false;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = result.Message = $@"Se obtuvo un error al consultar los detalles de envio.";
+                result.Ex = ex;
             }
             return result;
         }
@@ -353,7 +454,7 @@ namespace BL.BaseControl
         {
             Result result = new Result();
             string dateTime = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            string fileName = $@"SE_LEGACY_ENTREGA_{user}_{dateTime}.csv";
+            string fileName = $@"SE_LEGACY_OPE_ENTREGA_{user}_{dateTime}.csv";
             string filePath = Path.Combine(DL.Directory.GetOutputPath(mode), fileName);
             //string filePath = Path.Combine("C:\\Users\\Sistemas piso6 3\\Downloads", fileName);
             try
@@ -386,12 +487,12 @@ namespace BL.BaseControl
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = "Error al crear el archivo " + fileName + ": " + ex.Message;
+                result.Message = "Error al crear un archivo" + fileName + ": " + ex.Message;
                 //Console.WriteLine(result.Message);
             }
             return result;
         }
-        private static ML.Result UpdateRuta(string ord_rel, string mode)
+        private static ML.Result UpdateRoute(string carSal, string mode)
         {
             ML.Result result = new ML.Result();
             try
@@ -402,8 +503,9 @@ namespace BL.BaseControl
 
                     string query = $@"UPDATE
                                             ora_ruta
-                                        SET estatus = 2
-                                        WHERE ord_rel = '{ord_rel}'
+                                        SET estatus = 2,
+                                            fec_act = CURRENT
+                                        WHERE car_sal = '{carSal}'
                                         ";
 
                     List<ML.BaseControl.Reason> reasonList = new List<ML.BaseControl.Reason>();
@@ -428,8 +530,6 @@ namespace BL.BaseControl
             }
             return result;
         }
-
-
         private static ML.Result AcceptRoute(ML.Operator.RouteHeader route, string mode)
         {
             ML.Result result = new ML.Result();
@@ -458,12 +558,15 @@ namespace BL.BaseControl
                             throw new Exception($@"No se pudo aceptar la ruta");
                         }
                     }
+                    result.Correct = true;
+                    result.Message = $@"Ruta aceptada";
                 }
             }
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = $@"Error al aceptar la ruta";
+                result.Ex = ex;
+                result.Message = $@"Error al aceptar la ruta se formaron las interfaces, reintentar sin modificar eventos";
             }
             return result;
         }
@@ -504,6 +607,9 @@ namespace BL.BaseControl
                             throw new Exception($@"No se pudo rechazar la ruta");
                         }
                     }
+
+                    result.Correct = true;
+                    result.Message = $@"Ruta rechazada";
                 }
             }
             catch (Exception ex)

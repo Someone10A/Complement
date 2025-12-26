@@ -1,4 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using ML.Operator;
+using Newtonsoft.Json;
 
 namespace PL.Controllers
 {
@@ -6,7 +8,7 @@ namespace PL.Controllers
     {
         string mode = "DEV";
         string cod_pto = "870";
-
+        /*Asignado*/
         [HttpGet]
         public IActionResult GetAssignedRoute()
         {
@@ -43,7 +45,25 @@ namespace PL.Controllers
             });
         }
         [HttpPost]
-        public IActionResult GetOrdersPerRoute([FromBody] ML.Operator.RouteHeader route)
+        public IActionResult FinishRoute([FromBody] ML.Operator.RouteHeader route)
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return Unauthorized();
+            }
+
+            ML.Result result = BL.Operator.Operator.FinishRoute(route, mode);
+
+            return Json(new
+            {
+                success = result.Correct,
+                message = result.Message
+            });
+        }
+        /*Ruta*/
+        [HttpPost]
+        public IActionResult GetOrdersPerRoute(string routeJson)
         {
             var usuId = HttpContext.Session.GetString("usu_id");
             if (string.IsNullOrEmpty(usuId))
@@ -51,7 +71,36 @@ namespace PL.Controllers
                 return RedirectToAction("Login", "Login");
             }
 
+            if (string.IsNullOrEmpty(routeJson))
+            {
+                return RedirectToAction("GetAssignedRoute");
+            }
+
+            var route = JsonConvert.DeserializeObject<ML.Operator.RouteHeader>(routeJson);
+            //TempData["RouteHeader"] = JsonConvert.SerializeObject(route);
+            HttpContext.Session.SetString("RouteHeader", routeJson);
+
+            return RedirectToAction("RutaOperador");
+        }
+
+        [HttpGet]
+        public IActionResult RutaOperador()
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            var json = HttpContext.Session.GetString("RouteHeader");
+            if (string.IsNullOrEmpty(json))
+            {
+                return RedirectToAction("GetAssignedRoute");
+            }
+
             List<ML.Operator.RouteDetail> routeDetailList = new List<ML.Operator.RouteDetail>();
+
+            var route = JsonConvert.DeserializeObject<ML.Operator.RouteHeader>(json);
 
             ML.Result result = BL.Operator.Operator.GetOrdersPerRoute(route, mode);
             if (!result.Correct)
@@ -60,9 +109,12 @@ namespace PL.Controllers
             }
             routeDetailList = (List<ML.Operator.RouteDetail>)result.Object;
 
-            return View("Ruta", routeDetailList);
-        }
+            ViewBag.RouteHeader = route;
 
+            //string debugJson = JsonConvert.SerializeObject(routeDetailList, Formatting.Indented);
+
+            return View(routeDetailList);
+        }
         [HttpGet]
         public IActionResult GetReasons()
         {
@@ -72,7 +124,7 @@ namespace PL.Controllers
                 return RedirectToAction("Login", "Login");
             }
 
-            var result = BL.BaseControl.BaseControl.GetReasons(mode);
+            var result = BL.Operator.Operator.GetReasons(mode);
             if (!result.Correct)
             {
                 return BadRequest(result.Message);
@@ -81,7 +133,7 @@ namespace PL.Controllers
             return Json(result.Object);
         }
         [HttpPost]
-        public IActionResult AssignEvent([FromBody] ML.Operator.RouteHeader route,[FromBody] ML.Operator.RouteDetail routeDetail)
+        public IActionResult AssignEvent([FromBody] ML.Operator.RouteRequest routeRequest)
         {
             var usuId = HttpContext.Session.GetString("usu_id");
             if (string.IsNullOrEmpty(usuId))
@@ -89,7 +141,7 @@ namespace PL.Controllers
                 return Unauthorized();
             }
 
-            ML.Result result = BL.Operator.Operator.AssignEvent(route, routeDetail,mode);
+            ML.Result result = BL.Operator.Operator.AssignEvent(routeRequest.Header, routeRequest.Detail, mode);
 
             return Json(new
             {
@@ -97,7 +149,7 @@ namespace PL.Controllers
                 message = result.Message
             });
         }
-
+        /*Historico*/
         [HttpGet]
         public IActionResult GetHistorical()
         {
@@ -116,5 +168,6 @@ namespace PL.Controllers
 
             return View("Historico", result.Object);
         }
+
     }
 }

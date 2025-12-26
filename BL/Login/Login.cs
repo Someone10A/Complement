@@ -46,6 +46,37 @@ namespace BL.Login
             }
             return result;
         }
+
+        private static ML.Result ValidateAccount(string userid, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                bool isNumeric = !string.IsNullOrEmpty(userid) && userid.All(char.IsDigit);
+                bool isLGA = isNumeric;
+
+                if (isNumeric)
+                {
+                    result = ValidateUserLGA(userid, mode);
+                }
+                else
+                {
+                    result = ValidateUserOPE(userid, mode);
+                }
+
+                if (result.Correct)
+                {
+                    result.Object = isLGA;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"{ex.Message}";
+                result.Ex = ex;
+            }
+            return result;
+        }
         private static ML.Result ValidateUserLGA(string userid, string mode)
         {
             ML.Result result = new ML.Result();
@@ -87,20 +118,17 @@ namespace BL.Login
             }
             return result;
         }
-
         private static ML.Result ValidateUserOPE(string userid, string mode)
         {
             ML.Result result = new ML.Result();
             try
             {
-                string devMode = "DEV";
-                
                 string query = $@"SELECT rfc_ope
                                 FROM ora_operadores
                                 WHERE rfc_ope = ?
                                 AND active = '1'";
 
-                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(devMode)))
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {
                     connection.Open();
 
@@ -131,40 +159,6 @@ namespace BL.Login
             return result;
         }
 
-        private static ML.Result ValidateAccount(string userid, string mode)
-        {
-            ML.Result result = new ML.Result();
-            try
-            {
-                // Verificar si el usuario es 100% numérico
-                bool isNumeric = !string.IsNullOrEmpty(userid) && userid.All(char.IsDigit);
-                bool isLGA = isNumeric; // true para LGA, false para OPE
-
-                if (isNumeric)
-                {
-                    // Usuario numérico: usar ValidateUserLGA
-                    result = ValidateUserLGA(userid, mode);
-                }
-                else
-                {
-                    // Usuario no numérico: usar ValidateUserOPE (operadores)
-                    result = ValidateUserOPE(userid, mode);
-                }
-
-                // Guardar la bandera en result.Object para que Log la pueda usar
-                if (result.Correct)
-                {
-                    result.Object = isLGA;
-                }
-            }
-            catch (Exception ex)
-            {
-                result.Correct = false;
-                result.Message = $@"{ex.Message}";
-                result.Ex = ex;
-            }
-            return result;
-        } 
         private static ML.Result ValidatePassword(string userid, string password, string mode, bool isLGA)
         {
             ML.Result result = new ML.Result();
@@ -172,12 +166,10 @@ namespace BL.Login
             {
                 if (isLGA)
                 {
-                    // Usuario numérico: validar contra LGA
                     result = ValidatePasswordLGA(userid, password, mode);
                 }
                 else
                 {
-                    // Usuario no numérico: validar contra OPE (operadores)
                     result = ValidatePasswordOPE(userid, password, mode);
                 }
             }
@@ -189,7 +181,6 @@ namespace BL.Login
             }
             return result;
         }
-
         private static ML.Result ValidatePasswordLGA(string userid, string password, string mode)
         {
             ML.Result result = new ML.Result();
@@ -244,20 +235,17 @@ namespace BL.Login
             }
             return result;
         }
-
         private static ML.Result ValidatePasswordOPE(string userid, string password, string mode)
         {
             ML.Result result = new ML.Result();
             try
             {
-                string devMode = "DEV";
-                
                 string query = $@"SELECT TRIM(password), TRIM(nom_ope)
                                 FROM ora_operadores
                                 WHERE rfc_ope = ?
                                 AND active = '1'";
 
-                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(devMode)))
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {
                     connection.Open();
 
@@ -306,129 +294,6 @@ namespace BL.Login
                 result.Ex = ex;
             }
             return result;
-        } 
-        public static List<string> GetBaseUsers(string mode)
-        {
-            ML.Result result = new ML.Result();
-            List<string> baseUsers = new List<string>();
-            try
-            {
-                string query = $@"SELECT A.usu_id
-                                FROM ora_lga_usu A, dblga@lga_prod:lgausuario B
-                                WHERE B.usu_id = A.usu_id
-                                AND cv_area = 'CON'
-                                AND sub_rol = 'BAS''";
-                
-                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
-                {
-                    connection.Open();
-
-                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
-                    {
-                        using (OdbcDataReader reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read()) 
-                            {
-                                string us = reader.GetString(0);
-
-                                baseUsers.Add(us);
-                            }
-                        }
-                    }
-                }
-
-                result.Correct = true;
-                result.Object = baseUsers;
-            }
-            catch (Exception ex)
-            {
-                result.Correct = false;
-                result.Message = $@"Error al obtener base users {ex.Message}";
-                result.Ex = ex;
-            }
-            return baseUsers;
-        } 
-        public static List<string> GetInternetUsers(string mode)
-        {
-            ML.Result result = new ML.Result();
-            List<string> users = new List<string>();
-            try
-            {
-                string query = $@"SELECT A.usu_id
-                                FROM ora_lga_usu A, dblga@lga_prod:lgausuario B
-                                WHERE B.usu_id = A.usu_id
-                                AND cv_area = 'CON'
-                                AND sub_rol = 'INT''";
-                
-                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
-                {
-                    connection.Open();
-
-                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
-                    {
-                        using (OdbcDataReader reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read()) 
-                            {
-                                string us = reader.GetString(0);
-
-                                users.Add(us);
-                            }
-                        }
-                    }
-                }
-
-                result.Correct = true;
-                result.Object = users;
-            }
-            catch (Exception ex)
-            {
-                result.Correct = false;
-                result.Message = $@"Error al obtener internet users {ex.Message}";
-                result.Ex = ex;
-            }
-            return users;
-        } 
-        public static List<string> GetSupervisorUsers(string mode)
-        {
-            ML.Result result = new ML.Result();
-            List<string> users = new List<string>();
-            try
-            {
-                string query = $@"SELECT A.usu_id
-                                FROM ora_lga_usu A, dblga@lga_prod:lgausuario B
-                                WHERE B.usu_id = A.usu_id
-                                AND cv_area = 'CON'
-                                AND sub_rol = 'SUP''";
-                
-                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
-                {
-                    connection.Open();
-
-                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
-                    {
-                        using (OdbcDataReader reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read()) 
-                            {
-                                string us = reader.GetString(0);
-
-                                users.Add(us);
-                            }
-                        }
-                    }
-                }
-
-                result.Correct = true;
-                result.Object = users;
-            }
-            catch (Exception ex)
-            {
-                result.Correct = false;
-                result.Message = $@"Error al obtener supervisor users {ex.Message}";
-                result.Ex = ex;
-            }
-            return users;
         } 
     }
 }

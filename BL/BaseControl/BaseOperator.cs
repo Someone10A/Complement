@@ -79,7 +79,8 @@ namespace BL.BaseControl
                                     WHERE A.estatus IN (2,3)
                                     AND B.rfc_ope = A.rfc_ope
                                     AND C.car_sal = A.car_sal
-                                    GROUP BY 1,2,3,4,5,6,7";
+                                    GROUP BY 1,2,3,4,5,6,7
+                                    ORDER BY A.estatus DESC";
 
                     List<ML.Operator.RouteHeader> routes = new List<ML.Operator.RouteHeader>();
 
@@ -92,12 +93,12 @@ namespace BL.BaseControl
                                 ML.Operator.RouteHeader route = new ML.Operator.RouteHeader();
 
                                 route.Estatus = reader.GetString(0);
-                                route.Descripcion = reader.GetString(1);
-                                route.PtoAlm = reader.GetString(2);
-                                route.CarSal = reader.GetString(3);
-                                route.FecCar = reader.GetDateTime(4).ToString("ddMMyyyy");
-                                route.NomOpe = reader.GetString(5);
-                                route.RfcOpe = reader.GetString(6);
+                                route.Descripcion = reader.GetString(1).Trim();
+                                route.PtoAlm = reader.GetString(2).Trim();
+                                route.CarSal = reader.GetString(3).Trim();
+                                route.FecCar = reader.GetDateTime(4).ToString();
+                                route.NomOpe = reader.GetString(5).Trim();
+                                route.RfcOpe = reader.GetString(6).Trim();
 
                                 routes.Add(route);
                             }
@@ -197,22 +198,26 @@ namespace BL.BaseControl
                     {
                         using(OdbcDataReader reader = cmd.ExecuteReader())
                         {
-                            ML.Operator.RouteDetail routeDetail = new ML.Operator.RouteDetail();
+                           while (reader.Read())
+                           {
+                                ML.Operator.RouteDetail routeDetail = new ML.Operator.RouteDetail();
 
-                            routeDetail.FecAct = reader.GetDateTime(0).ToString();
-                            routeDetail.CarSal = reader.GetString(1);
-                            routeDetail.OrdRel = reader.GetString(2);
-                            routeDetail.NumScn = reader.GetString(3);
-                            routeDetail.CodPto = reader.GetString(4);
-                            routeDetail.CodCli = reader.GetString(5);
-                            routeDetail.Cliente = reader.GetString(6);
-                            routeDetail.EstatusRuta = reader.GetString(7);
-                            routeDetail.EstatusGnx = reader.GetString(8).Trim();
-                            routeDetail.EstatusRT = reader.GetString(9);
-                            routeDetail.Motivo = reader.GetString(10);
-                            routeDetail.RddInfo = reader.GetString(11).Trim();
+                                routeDetail.FecAct = reader.GetDateTime(0).ToString();
+                                routeDetail.CarSal = reader.GetString(1);
+                                routeDetail.OrdRel = reader.GetString(2);
+                                routeDetail.NumScn = reader.GetString(3);
+                                routeDetail.CodPto = reader.GetString(4);
+                                routeDetail.CodCli = reader.GetString(5);
+                                routeDetail.Cliente = reader.GetString(6);
+                                routeDetail.EstatusRuta = reader.GetString(7).Trim();
+                                routeDetail.EstatusGnx = reader.GetString(8).Trim();
+                                routeDetail.EstatusRT = reader.GetString(9);
+                                routeDetail.Motivo = reader.GetString(10);
+                                routeDetail.RddInfo = reader.GetString(11).Trim();
+                                //routeDetail.Dirreccion = reader.GetString(12).Trim();
 
-                            routeDetailList.Add(routeDetail);
+                                routeDetailList.Add(routeDetail);
+                           }
                         }
                     }
 
@@ -223,7 +228,7 @@ namespace BL.BaseControl
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = $@"Se obtuvo un error al consultar el detalle de la ruta.";
+                result.Message = $@"Se obtuvo un error al consultar el detalle de la ruta: {ex.Message}";
             }
             return result;
         }
@@ -258,6 +263,7 @@ namespace BL.BaseControl
                 //Confirmation
                 foreach (ML.BaseControl.Confirmation confirmation  in confirmationList)
                 {
+                    confirmation.DeliveryReason = confirmation.DeliveryReason == "0" ? "ENTREGA_OK" : confirmation.DeliveryReason;
                     //GetData
                     ML.Result resultGetDetails = await GetDetails(confirmation.OrdRel, mode);
                     if (!resultGetDetails.Correct)
@@ -316,11 +322,16 @@ namespace BL.BaseControl
                 {
                     connection.Open();
 
-                    string query = $@"SELECT TRIM(ord_rel)
-                                        FROM ora_ruta
-                                        WHERE pto_alm = {ptoAlm}
-                                        AND car_sal = '{carSal}'
-                                        AND estatus = 0";
+                    string query = $@"SELECT TRIM(A.ord_rel) AS ord_rel, cod_mot
+                                    FROM ora_ruta A
+                                    INNER JOIN ora_ruta_eventos B
+                                             ON B.pto_alm = A.pto_alm
+                                            AND B.car_sal = A.car_sal
+                                            AND B.ord_rel = A.ord_rel
+                                            AND B.num_scn = A.num_scn
+                                    WHERE A.pto_alm = {ptoAlm}
+                                    AND A.estatus = 0
+                                    AND A.car_sal = '{carSal}'";
 
                     using (OdbcCommand command = new OdbcCommand(query, connection))
                     {
@@ -341,8 +352,13 @@ namespace BL.BaseControl
                     }
                 }
 
+                if(confirmationList.Count() < 1)
+                {
+                    throw new Exception($@"No se encontraron eventos a marcar ({confirmationList.Count()})");
+                }
+
                 result.Correct = true;
-                result.Message = $@"";
+                result.Message = $@"Se encontraron {confirmationList.Count()} eventos";
                 result.Object = confirmationList;
             }
             catch (Exception ex)
@@ -454,9 +470,9 @@ namespace BL.BaseControl
         {
             Result result = new Result();
             string dateTime = DateTime.Now.ToString("yyyyMMddHHmmssfff");
-            string fileName = $@"SE_LEGACY_OPE_ENTREGA_{user}_{dateTime}.csv";
-            string filePath = Path.Combine(DL.Directory.GetOutputPath(mode), fileName);
-            //string filePath = Path.Combine("C:\\Users\\Sistemas piso6 3\\Downloads", fileName);
+            string fileName = $@"SE_LEGACY_ENTREGA_X_{user}_{dateTime}.csv";
+            //string filePath = Path.Combine(DL.Directory.GetOutputPath(mode), fileName);
+            string filePath = Path.Combine("C:\\Users\\Sistemas piso6 3\\Documents\\Alan Oran\\Temp", fileName);
             try
             {
                 string C = string.Join("|", typeof(ML.BaseControl.InterfaceControl).GetProperties().Select(p => p.GetValue(inter.Control)).ToArray());

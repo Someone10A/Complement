@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Newtonsoft.Json;
 using static NuGet.Packaging.PackagingConstants;
 
 namespace PL.Controllers
@@ -61,7 +62,7 @@ namespace PL.Controllers
             {
                 return BadRequest(result.Message);
             }
-
+            //Regresa List<ML.BaseControl.Order> orderList 
             return Json(result.Object);
         }
 
@@ -164,7 +165,7 @@ namespace PL.Controllers
                 return RedirectToAction("Login", "Login");
             }
 
-            var result = BL.BaseControl.BaseOperator.GetOpenRoutes(mode);
+            var result = BL.BaseControl.BaseOperator.GetOpenRoutes("DEV"); 
             if (!result.Correct)
             {
                 ViewBag.Error = result.Message;
@@ -174,8 +175,9 @@ namespace PL.Controllers
             return View("BaseOperator", result.Object);
         }
 
+        [ValidateAntiForgeryToken]
         [HttpPost]
-        public IActionResult BaseOperatorGetOrdersPerRoute([FromBody] ML.BaseControl.OutboundShipment outboundShipment)
+        public IActionResult BaseOperatorGetOrdersPerRoute([FromBody] ML.Operator.RouteHeader route)
         {
             var usuId = HttpContext.Session.GetString("usu_id");
             if (string.IsNullOrEmpty(usuId))
@@ -183,15 +185,16 @@ namespace PL.Controllers
                 return Unauthorized();
             }
 
-            var result = BL.BaseControl.BaseControl.GetOrdersPerRoute(outboundShipment, mode);
+            var result = BL.BaseControl.BaseOperator.GetOrdersPerRoute(route, "DEV");
             if (!result.Correct)
             {
                 return BadRequest(result.Message);
             }
 
+            string debugJson = JsonConvert.SerializeObject(result.Object, Formatting.Indented);
             return Json(result.Object);
         }
-
+        [ValidateAntiForgeryToken]
         [HttpPost]
         public async Task<IActionResult> MultiConfirmation([FromBody] ML.Operator.RouteHeader route)
         {
@@ -201,7 +204,7 @@ namespace PL.Controllers
                 return Unauthorized();
             }
 
-            ML.Result result = await BL.BaseControl.BaseOperator.MultiConfirmation(route, usuId, mode);
+            ML.Result result = await BL.BaseControl.BaseOperator.MultiConfirmation(route, usuId, "DEV");
 
             return Json(new
             {
@@ -209,7 +212,7 @@ namespace PL.Controllers
                 message = result.Message
             });
         }
-
+        [ValidateAntiForgeryToken]
         [HttpPost]
         public IActionResult RejectRoute([FromBody] ML.Operator.RouteHeader route)
         {
@@ -219,7 +222,7 @@ namespace PL.Controllers
                 return Unauthorized();
             }
 
-            ML.Result result = BL.BaseControl.BaseOperator.RejectRoute(route, mode);
+            ML.Result result = BL.BaseControl.BaseOperator.RejectRoute(route, "DEV");
 
             return Json(new
             {

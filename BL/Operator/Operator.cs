@@ -9,20 +9,6 @@ namespace BL.Operator
 {
     public class Operator
     {
-        public static ML.Result x(string mode)
-        {
-            ML.Result result = new ML.Result();
-            try
-            {
-
-            }
-            catch (Exception ex)
-            {
-                result.Correct = false;
-                result.Message = $@"";
-            }
-            return result;
-        }
         /*
          *Metodo:       GetAssignedRoute
          *Vista:        Asignado.cshtml
@@ -41,7 +27,7 @@ namespace BL.Operator
                 {
                     connection.Open();
 
-                    string query = $@"SELECT FIRST A.estatus,
+                    string query = $@"SELECT FIRST 1 A.estatus,
                                             CASE
                                             WHEN (A.estatus = 0) THEN 'Ruta asignada'
                                             WHEN (A.estatus = 1) THEN 'Ruta Cerrada'
@@ -52,10 +38,13 @@ namespace BL.Operator
                                             A.pto_alm, 
                                             TRIM(A.car_sal) AS car_sal,
                                             B.fec_car,
-                                            TRIM(rfc_ope) AS rfc_ope,
+                                            TRIM(C.nom_ope) AS nom_ope,
+                                            TRIM(A.rfc_ope) AS rfc_ope
                                     FROM ora_asignacion_operador A
                                     INNER JOIN ora_ruta B 
                                          ON B.car_sal = A.car_sal
+                                    LEFT JOIN ora_operadores C
+                                         ON C.rfc_ope = A.rfc_ope
                                     WHERE A.cod_emp = 1
                                     AND A.rfc_ope = '{ope}'
                                     AND A.estatus IN (0,2,3)";
@@ -73,9 +62,10 @@ namespace BL.Operator
                                 route.Descripcion = reader.GetString(1);
                                 route.PtoAlm = reader.GetString(2);
                                 route.CarSal = reader.GetString(3);
-                                route.FecCar = reader.GetDateTime(4).ToString("ddMMyyyy");
+                                route.FecCar = reader.GetDateTime(4).ToString();
                                 route.NomOpe = reader.GetString(5);
-                                route.RfcOpe = reader.GetString(5);
+                                route.RfcOpe = reader.GetString(6);
+                                route.Comentario = reader.GetString(5);
                             }
                         }
                     }
@@ -139,6 +129,105 @@ namespace BL.Operator
             }
             return result;
         }
+        public static ML.Result FinishRoute(ML.Operator.RouteHeader route, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    ML.Result resultValidateShipment = ValidateShipment(connection, route);
+                    if (!resultValidateShipment.Correct)
+                    {
+                        throw new Exception($@"{resultValidateShipment.Message}");
+                    }
+
+
+                    string query = $@"UPDATE
+                                             ora_asignacion_operador
+                                        SET estatus = 3
+                                        WHERE cod_emp = 1
+                                        AND pto_alm = {route.PtoAlm}
+                                        AND car_sal = '{route.CarSal}'
+                                        AND rfc_ope = '{route.RfcOpe}'
+                                        AND estatus = 2
+                                        ";
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        int rowsAffected = cmd.ExecuteNonQuery();
+
+                        if (rowsAffected < 1)
+                        {
+                            throw new Exception($@"No se pudo marcar la finalizacion de la ruta");
+                        }
+                    }
+                    result.Correct = true;
+                    result.Message = $@"Ruta finalizada";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error al finalizar la ruta {ex.Message}";
+            }
+            return result;
+        }
+        private static ML.Result ValidateShipment(OdbcConnection connection, ML.Operator.RouteHeader route)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                string query = $@"SELECT COUNT(*)
+                                    FROM ora_asignacion_operador A
+                                    INNER JOIN ora_ruta B
+	                                     ON B.pto_alm = A.pto_alm
+	                                    AND B.car_sal = A.car_sal
+                                    LEFT JOIN ora_ruta_eventos C
+	                                     ON C.pto_alm = B.pto_alm
+	                                    AND C.ord_rel = B.ord_rel
+	                                    AND C.num_scn = B.num_scn
+                                    WHERE A.cod_emp = 1
+                                    AND A.pto_alm = {route.PtoAlm.Trim()}
+                                    AND A.estatus = {route.Estatus}
+                                    AND A.car_sal = '{route.CarSal}'
+                                    AND A.rfc_ope = '{route.RfcOpe}'
+                                    AND C.cod_mot IS NULL";
+
+                int pend = 0;
+
+                using(OdbcCommand command = new OdbcCommand(query, connection))
+                {
+                    using(OdbcDataReader reader = command.ExecuteReader())
+                    {
+                        if (reader.Read())
+                        {
+                            pend = reader.GetInt32(0);
+                        }
+                        else
+                        {
+                            throw new Exception($@"No se pudo leer los registros de la ruta del chofer");
+                        }
+                    }
+                }
+
+                if (pend > 0)
+                {
+                    throw new Exception($@"Aun se tienen {pend} registros pendientes de marcar evento");
+                }
+
+                result.Correct = true;
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Validacion de Ruta no exitosa {ex.Message}";
+                result.Ex = ex;
+            }
+            return result;
+        }
         /*
          *Metodo:       GetOrdersPerRoute
          *Vista:        Ruta.cshtml
@@ -188,7 +277,11 @@ namespace BL.Operator
                                         WHEN E.estado = 'G' THEN E.estado||'-Generado'
                                         ELSE E.estado||'-Estado desconocido'
                                         END AS estatus_gnx,
-                                        'Ruta Trabajandose' AS estatus_rt,
+                                        CASE 
+                                        WHEN (A.estatus = 0) THEN 'Ruta aun no aceptada'
+                                        WHEN (A.estatus = 3) THEN 'Ruta finalizada'
+                                        ELSE 'Ruta Trabajandose' 
+                                        END AS estatus_rt,
                                         CASE
                                         WHEN (C.cod_mot IS NULL) THEN 'No marcado aun'
                                         ELSE TRIM(D.des_mot) 
@@ -196,7 +289,9 @@ namespace BL.Operator
                                         CASE
                                         WHEN(G.scn_nvo IS NULL) THEN 'NO'
                                         ELSE 'Es un RDD de cambio' 
-		                                END AS rdd_info
+		                                END AS rdd_info,
+                                        TRIM(H.pro_cli)||' '||TRIM(H.pob_cli)||' '||H.cp_cli||' '||
+                                        TRIM(H.col_cli)||' '||TRIM(H.dir_cli) AS dirreccion
                                 FROM ora_asignacion_operador A
                                 INNER JOIN ora_ruta B
                                          ON B.pto_alm = A.pto_alm
@@ -217,6 +312,9 @@ namespace BL.Operator
                                 LEFT JOIN rdd_cab G
                                          ON G.cod_emp = E.cod_emp
                                         AND G.scn_nvo = E.num_scn
+                                LEFT JOIN cli_direccion H
+                                         ON H.cod_emp = E.cod_emp
+                                        AND H.cod_dir = E.cod_dir
                                 WHERE A.pto_alm  = {route.PtoAlm}
                                 AND A.car_sal = '{route.CarSal}'
                                 AND A.rfc_ope = '{route.RfcOpe}'";
@@ -233,8 +331,8 @@ namespace BL.Operator
 	                                            UPPER(TRIM(F.nom_cli)||' '||TRIM(F.ape1_cli)||' '||TRIM(F.ape2_cli)) AS cliente,
 	                                            CASE
 	                                            WHEN (B.estatus = 0) THEN '0-Abierto'
-	                                            WHEN (B.estatus = 1) THEN '0-Cerrado'
-	                                            WHEN (B.estatus = 2) THEN '0-Procesando'
+	                                            WHEN (B.estatus = 1) THEN '1-Cerrado'
+	                                            WHEN (B.estatus = 2) THEN '2-Procesando'
 	                                            ELSE B.estatus||'Desconocido'
 	                                            END AS estatus_ruta,
 	                                            CASE
@@ -266,7 +364,8 @@ namespace BL.Operator
 	                                            CASE
 	                                            WHEN(G.scn_nvo IS NULL) THEN 'NO'
 	                                            ELSE 'Es un RDD de cambio' 
-	                                            END AS rdd_info
+	                                            END AS rdd_info,
+                                                'X' AS direccion
                                             FROM ora_asignacion_operador A
                                             INNER JOIN ora_ruta B
 	                                             ON B.pto_alm = A.pto_alm
@@ -299,22 +398,26 @@ namespace BL.Operator
                     {
                         using (OdbcDataReader reader = cmd.ExecuteReader())
                         {
-                            ML.Operator.RouteDetail routeDetail = new ML.Operator.RouteDetail();
+                            while (reader.Read())
+                            {
+                                ML.Operator.RouteDetail routeDetail = new ML.Operator.RouteDetail();
 
-                            routeDetail.FecAct = reader.GetDateTime(0).ToString();
-                            routeDetail.CarSal = reader.GetString(1);
-                            routeDetail.OrdRel = reader.GetString(2);
-                            routeDetail.NumScn = reader.GetString(3);
-                            routeDetail.CodPto = reader.GetString(4);
-                            routeDetail.CodCli = reader.GetString(5);
-                            routeDetail.Cliente = reader.GetString(6);
-                            routeDetail.EstatusRuta = reader.GetString(7);
-                            routeDetail.EstatusGnx = reader.GetString(8).Trim();
-                            routeDetail.EstatusRT = reader.GetString(9);
-                            routeDetail.Motivo = reader.GetString(10);
-                            routeDetail.RddInfo = reader.GetString(11).Trim();
+                                routeDetail.FecAct = reader.GetDateTime(0).ToString();
+                                routeDetail.CarSal = reader.GetString(1);
+                                routeDetail.OrdRel = reader.GetString(2);
+                                routeDetail.NumScn = reader.GetString(3);
+                                routeDetail.CodPto = reader.GetString(4);
+                                routeDetail.CodCli = reader.GetString(5);
+                                routeDetail.Cliente = reader.GetString(6);
+                                routeDetail.EstatusRuta = reader.GetString(7);
+                                routeDetail.EstatusGnx = reader.GetString(8).Trim();
+                                routeDetail.EstatusRT = reader.GetString(9).Trim();
+                                routeDetail.Motivo = reader.GetString(10).Trim();
+                                routeDetail.RddInfo = reader.GetString(11).Trim();
+                                routeDetail.Dirreccion = reader.GetString(12).Trim();
 
-                            routeDetailList.Add(routeDetail);
+                                routeDetailList.Add(routeDetail);
+                            }
                         }
                     }
 
@@ -397,8 +500,8 @@ namespace BL.Operator
                     string queryTest = $@"SELECT COUNT(*)
                                         FROM ora_ruta_eventos 
                                         WHERE pto_alm = {route.PtoAlm}
-                                        AND car_sal = {routeDetail.CarSal}
-                                        AND ord_rel = ord_rel
+                                        AND car_sal = '{routeDetail.CarSal}'
+                                        AND ord_rel = '{routeDetail.OrdRel}'
                                         AND num_scn = num_scn";
                     bool exist = false;
                     using (OdbcCommand cmd = new OdbcCommand(queryTest, connection))
@@ -413,12 +516,12 @@ namespace BL.Operator
                     }
 
                     string query = !exist ?
-                                    $@"INSERT INTO (pto_alm,car_sal,ord_rel,num_scn,fec_act,cod_mot,usu_mot)
+                                    $@"INSERT INTO ora_ruta_eventos(pto_alm,car_sal,ord_rel,num_scn,fec_act,cod_mot,usu_mot)
 	                                    VALUES ({route.PtoAlm},'{route.CarSal}','{routeDetail.OrdRel}','{routeDetail.NumScn}',CURRENT,{routeDetail.Motivo},'{route.RfcOpe}')" :
                                     $@"UPDATE 
 	                                        ora_ruta_eventos 
                                         SET fec_act = CURRENT,
-	                                        cod_mot = {routeDetail.Motivo}
+	                                        cod_mot = {routeDetail.Motivo},
 	                                        usu_mot = '{route.RfcOpe}'
                                         WHERE pto_alm = {route.PtoAlm}
                                         AND car_sal = '{route.CarSal}'
@@ -475,14 +578,17 @@ namespace BL.Operator
                                             A.pto_alm, 
                                             TRIM(A.car_sal) AS car_sal,
                                             B.fec_car,
-                                            TRIM(rfc_ope) AS rfc_ope,
+                                            TRIM(C.nom_ope) AS nom_ope,
+                                            TRIM(A.rfc_ope) AS rfc_ope
                                     FROM ora_asignacion_operador A
                                     INNER JOIN ora_ruta B 
-                                         ON B.car_sal = A.car_sal
+                                            ON B.car_sal = A.car_sal
+                                    LEFT JOIN ora_operadores C
+                                            ON C.rfc_ope = A.rfc_ope
                                     WHERE A.cod_emp = 1
                                     AND A.rfc_ope = '{ope}'
                                     AND A.estatus IN (1)
-                                    GROUP BY 1,2,3,4,5,6";
+                                    GROUP BY 1,2,3,4,5,6,7";
 
                     List<ML.Operator.RouteHeader> routes = new List<ML.Operator.RouteHeader>();
 
@@ -498,9 +604,9 @@ namespace BL.Operator
                                 route.Descripcion = reader.GetString(1);
                                 route.PtoAlm = reader.GetString(2);
                                 route.CarSal = reader.GetString(3);
-                                route.FecCar = reader.GetDateTime(4).ToString("ddMMyyyy");
+                                route.FecCar = reader.GetDateTime(4).ToString();
                                 route.NomOpe = reader.GetString(5);
-                                route.RfcOpe = reader.GetString(5);
+                                route.RfcOpe = reader.GetString(6);
 
                                 routes.Add(route);
                             }

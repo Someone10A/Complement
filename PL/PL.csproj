@@ -23,8 +23,4 @@
     <ProjectReference Include="..\ML\ML.csproj" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Views\RouteOperator\" />
-  </ItemGroup>
-
 </Project>

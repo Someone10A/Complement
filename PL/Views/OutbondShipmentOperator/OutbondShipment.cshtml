@@ -1,0 +1,317 @@
+﻿@{
+    ViewData["Title"] = "Cargas de salida";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Cargas de salida</h2>
+    <hr />
+    <div id="contenedorCards" class="row g-3 d-md-none"></div>
+    <table id="tablaCarSal" class="table table-hover table-striped table-bordered align-middle mb-0 d-none d-md-table">
+
+        <thead class="table-dark">
+            <tr>
+                <th>Carga</th>
+                <th>Fecha</th>
+                <th>Descripción</th>
+                <th>Operador</th>
+                <th>Acción</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<div id="sendOverlay"
+     class="position-fixed top-0 start-0 w-100 h-100 d-none justify-content-center align-items-center"
+     style="background: rgba(0,0,0,0.4); z-index:9999;">
+    <div class="spinner-border text-primary" style="width:60px;height:60px"></div>
+</div>
+
+<div class="modal fade" id="modalOperadores" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Seleccionar Operador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table id="tablaOperadores" class="table table-hover table-striped table-bordered align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>RFC</th>
+                            <th>Nombre</th>
+                            <th>Activo</th>
+                            <th>Seleccionar</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalPendientes" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Órdenes pendientes del operador</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <table id="tablaPendientes" class="table table-hover table-striped table-bordered align-middle mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Carga</th>
+                            <th>Orden</th>
+                            <th>Estatus</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalConfirmDelete" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Quitar asignación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                ¿Deseas quitar la asignación de esta carga?
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button class="btn btn-danger" id="btnConfirmDelete">Quitar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        let tablaCarSal = null
+        let tablaOperadores = null
+        let tablaPendientes = null
+        let carSalSeleccionada = null
+        let carSalCache = {}
+
+        document.addEventListener("DOMContentLoaded", cargarCarSal)
+
+        function mostrarOverlay() {
+            $("#sendOverlay").removeClass("d-none").addClass("d-flex")
+        }
+
+        function ocultarOverlay() {
+            $("#sendOverlay").addClass("d-none").removeClass("d-flex")
+        }
+
+        function cargarCarSal() {
+            mostrarOverlay()
+
+            if (tablaCarSal) {
+                tablaCarSal.clear().destroy()
+                tablaCarSal = null
+            }
+
+            $("#tablaCarSal tbody").empty()
+
+            $.get("/OutbondShipmentOperator/GetOutbondShipmentsQualified", resp => {
+                if (!resp.success) return alert(resp.message)
+
+                let rows = ""
+                carSalCache = {}
+
+                resp.outbondShipmentList.forEach(x => {
+                    carSalCache[x.carSal] = x
+
+                    const op = x.nomOpe || "-"
+                    const boton = x.descripcion === "Ruta sin asigacion"
+                        ? `<button class="btn btn-primary btn-sm" onclick="abrirAsignar('${x.carSal}')">Asignar</button>`
+                        : `<button class="btn btn-danger btn-sm" onclick="confirmarQuitar('${x.carSal}')">Quitar</button>`
+
+                    rows += `
+                    <tr>
+                        <td>${x.carSal}</td>
+                        <td>${x.fecCar}</td>
+                        <td>${x.descripcion}</td>
+                        <td>${op}</td>
+                        <td>${boton}</td>
+                    </tr>`
+                })
+
+                $("#tablaCarSal tbody").html(rows)
+
+                tablaCarSal = $("#tablaCarSal").DataTable({
+                    language: { url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-MX.json" },
+                    pageLength: 10,
+                    responsive: true,
+                    destroy: true
+                })
+            }).always(ocultarOverlay)
+        }
+
+
+        function abrirAsignar(carSal) {
+            carSalSeleccionada = carSal
+            cargarOperadores()
+        }
+
+        function cargarOperadores() {
+            mostrarOverlay()
+
+            $.ajax({
+                url: "/OutbondShipmentOperator/GetOperadoresActive",
+                type: "GET",
+                success: data => {
+
+                    let rows = ""
+                    data.forEach(x => {
+                        rows += `
+                        <tr>
+                            <td>${x.rfcOpe}</td>
+                            <td>${x.nomOpe}</td>
+                            <td>${x.active}</td>
+                            <td>
+                                <button class="btn btn-success btn-sm"
+                                    onclick="asignarOperador('${x.rfcOpe}', '${x.nomOpe}')">
+                                    Seleccionar
+                                </button>
+                            </td>
+                        </tr>`
+                    })
+
+                    $("#tablaOperadores tbody").html(rows)
+
+                    if (tablaOperadores) tablaOperadores.destroy()
+
+                    tablaOperadores = $("#tablaOperadores").DataTable()
+
+                    new bootstrap.Modal(
+                        document.getElementById("modalOperadores")
+                    ).show()
+                },
+                error: xhr => {
+
+                    if (xhr.status === 401) {
+                        location.href = "/Login/Login"
+                        return
+                    }
+
+                    Swal.fire({
+                        icon: "error",
+                        title: "Error",
+                        text: xhr.responseJSON?.message || "No se pudieron cargar operadores"
+                    })
+                },
+                complete: ocultarOverlay
+            })
+        }
+
+
+        function asignarOperador(rfc, nombre) {
+            mostrarOverlay()
+
+            $.ajax({
+                url: "/OutbondShipmentOperator/InsertAssign",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify({
+                    outbondShipment: carSalCache[carSalSeleccionada],
+                    ope: {
+                        rfcOpe: rfc,
+                        nomOpe: nombre
+                    }
+                }),
+                success: resp => {
+                    if (resp.success) {
+                        bootstrap.Modal.getInstance(
+                            document.getElementById("modalOperadores")
+                        ).hide()
+
+                        cargarCarSal()
+
+                        Swal.fire({
+                            icon: "success",
+                            title: "Operador asignado",
+                            timer: 1500,
+                            showConfirmButton: false
+                        })
+
+                        return
+                    }
+
+                    if (!resp.pendingOrders) {
+                        return Swal.fire("Atención", resp.message, "warning")
+                    }
+
+                    let rows = ""
+
+                    resp.pendingOrders.forEach(x => {
+                        rows += `
+                        <tr>
+                            <td>${x.carSal}</td>
+                            <td>${x.ordRel}</td>
+                            <td>${x.estatus}</td>
+                        </tr>`
+                    })
+
+                    $("#tablaPendientes tbody").html(rows)
+
+                    if (tablaPendientes) tablaPendientes.destroy()
+
+                    tablaPendientes = $("#tablaPendientes").DataTable({
+                        language: { url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-MX.json" }
+                    })
+
+                    new bootstrap.Modal(
+                        document.getElementById("modalPendientes")
+                    ).show()
+                }
+            }).always(ocultarOverlay)
+        }
+
+
+        function confirmarQuitar(carSal) {
+            carSalSeleccionada = carSal
+
+            $("#btnConfirmDelete").off().on("click", quitarAsignacion)
+
+            new bootstrap.Modal(document.getElementById("modalConfirmDelete")).show()
+        }
+
+        function quitarAsignacion() {
+            mostrarOverlay()
+
+            $.ajax({
+                url: "/OutbondShipmentOperator/DeleteAssign",
+                type: "DELETE",
+                contentType: "application/json",
+                data: JSON.stringify({ carSal: carSalSeleccionada }),
+                success: resp => {
+                    if (!resp.success) {
+                        return Swal.fire("Error", resp.message, "error")
+                    }
+
+                    bootstrap.Modal.getInstance(
+                        document.getElementById("modalConfirmDelete")
+                    ).hide()
+
+                    cargarCarSal()
+
+                    Swal.fire({
+                        icon: "success",
+                        title: "Asignación eliminada",
+                        timer: 1500,
+                        showConfirmButton: false
+                    })
+                }
+            }).always(ocultarOverlay)
+        }
+    </script>
+}

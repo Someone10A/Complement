@@ -153,6 +153,7 @@
             color: white !important;
             border-color: #0d6efd !important;
         }
+
     </style>
 }
 
@@ -165,6 +166,7 @@
         let rutasOriginales = @Html.Raw(Json.Serialize(Model));
         let rutasOrdenadas = [...rutasOriginales];
         let ordenAscendente = true;
+
 
         document.addEventListener("DOMContentLoaded", () => {
             renderizarListaRutas();
@@ -371,7 +373,7 @@
                             DeliveryReason: deliveryReason
                         }),
                         success: function (response) {
-                            
+
                             Swal.fire({
                               title: response,
                               icon: 'info',
@@ -470,4 +472,3 @@
         //# sourceURL=debug-scripts.js
     </script>
 }
-

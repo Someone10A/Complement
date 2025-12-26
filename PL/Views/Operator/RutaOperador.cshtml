@@ -1,0 +1,533 @@
+﻿@model List<ML.Operator.RouteDetail>
+
+@{
+    ViewData["Title"] = "Detalle de Ruta";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <div class="d-flex justify-content-between align-items-center mb-3 mt-2">
+        <h2 class="fw-bold mb-0 text-primary">
+            <i class="bi bi-truck"></i> Detalle de Ruta
+        </h2>
+        <a class="btn btn-outline-secondary d-flex align-items-center gap-2" href="javascript:history.back()">
+            <i class="bi bi-arrow-left"></i> Volver
+        </a>
+    </div>
+    <hr />
+
+    @if (Model != null && Model.Count > 0)
+    {
+        foreach (var item in Model)
+        {
+            <div class="route-card-wrapper mb-2" data-estatus-rt="@item.EstatusRT" data-motivo="@item.Motivo" data-estatus-gnx="@item.EstatusGnx">
+                <div class="route-card">
+                    <!-- Banda izquierda -->
+                    <div class="route-card-band"></div>
+                    <div class="route-card-content">
+                        <!-- Header -->
+                        <div class="row gx-2 gy-1 mb-1 align-items-center">
+                            <div class="col-md-9">
+                                <h4 class="mb-0 fw-semibold">
+                                    @item.Cliente
+                                    <span class="route-cancelado ms-2 d-none"> CANCELADO </span>
+                                    <span class="route-rdd ms-2 d-none"> RDD </span>
+                                </h4>
+                            </div>
+                            <div class="col-md-3 text-end">
+                                <small class="text-muted"> @item.FecAct </small>
+                            </div>
+                        </div>
+                        <hr class="my-2" />
+                        <!-- Información -->
+                        <div class="row gx-2 gy-1">
+                            <div class="col-md-9">
+                                <div class="row gx-2 gy-1 mb-1">
+                                    <div class="col-sm-6">
+                                        <strong>SCN:</strong> @item.NumScn
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <strong>Orden:</strong> @item.OrdRel
+                                    </div>
+                                </div>
+                                <div class="row gx-2 gy-1 mb-1">
+                                    <div class="col-sm-6">
+                                        <strong>Estatus GNX:</strong> @item.EstatusGnx
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <strong>Estatus Entrega:</strong> @item.EstatusRuta
+                                    </div>
+                                </div>
+                                <div class="row gx-2 gy-1">
+                                    <div class="col-sm-6">
+                                        <strong>Estatus RT:</strong> @item.EstatusRT
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <strong>Evento:</strong> @item.Motivo
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Acciones -->
+                            <div class="col-md-3 text-end">
+                                <button type="button" class="btn btn-primary btn-lg w-100 mb-2" onclick="verDetalleApi('@item.OrdRel')">
+                                    Detalle
+                                </button>
+                                <!-- Marcar evento -->
+                                <div class="route-evento d-none" data-ord-rel="@item.OrdRel" data-car-sal="@item.CarSal">
+                                    <select class="form-select route-motivo-select mb-2">
+                                    </select>
+                                    <button type="button" class="btn btn-success w-100 btn-marcar-evento">
+                                        Marcar evento
+                                    </button>
+                                </div>
+                            </div>
+                            <details class="mt-1">
+                                <summary>Dirección</summary>
+                                <div class="mt-1">
+                                    @item.Dirreccion
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else
+    {
+        <div class="alert alert-warning">
+            No hay órdenes para mostrar.
+        </div>
+    }
+
+</div>
+
+
+<!-- Modal detalle orden -->
+<div class="modal fade" id="detalleOrdenModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Detalle de Orden</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="detalleOrdenModalBody">
+            </div>
+        </div>
+    </div>
+</div>
+@section Styles {
+    <style>
+        .route-card-wrapper {
+            position: relative;
+        }
+
+        .route-card {
+            display: flex;
+            border-radius: 1rem;
+            background: #fff;
+            box-shadow: 0 2px 6px rgba(0,0,0,.08);
+            transition: all .2s ease-in-out;
+            overflow: hidden;
+        }
+
+            .route-card:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 6px 12px rgba(0,0,0,.12);
+            }
+
+        .route-card-band {
+            width: 8px;
+            background: #dee2e6;
+        }
+
+        .route-card-content {
+            flex: 1;
+            padding: 1rem 1.25rem;
+        }
+
+        .route-cancelado {
+            color: #dc3545;
+            font-weight: 700;
+        }
+
+        .route-rdd {
+            color: #0d6efd;
+            font-weight: 700;
+        }
+
+        /* Fondo suave y banda intensa */
+        .route-neutral .route-card {
+            background: #ffffff;
+        }
+
+        .route-neutral .route-card-band {
+            background: #ced4da;
+        }
+
+        .route-gray .route-card {
+            background: #f9f9f9;
+        }
+
+        .route-gray .route-card-band {
+            background: #6c757d;
+        }
+
+        .route-green .route-card {
+            background: #d1e7dd;
+        }
+
+        .route-green .route-card-band {
+            background: #198754;
+        }
+
+        .route-yellow .route-card {
+            background: #fff9db;
+        }
+
+        .route-yellow .route-card-band {
+            background: #ffca2c;
+        }
+
+        .route-orange .route-card {
+            background: #fff4e1;
+        }
+
+        .route-orange .route-card-band {
+            background: #fd7e14;
+        }
+
+        .route-red .route-card {
+            background: #f8d7da;
+        }
+
+        .route-red .route-card-band {
+            background: #dc3545;
+        }
+
+        .btn-primary,
+        .btn-success {
+            border-radius: .7rem;
+            transition: all .2s ease-in-out;
+        }
+
+            .btn-primary:hover,
+            .btn-success:hover {
+                transform: scale(1.03);
+                opacity: .95;
+            }
+
+        @@media (max-width: 768px) {
+            .route-card-content
+
+        {
+            padding: .9rem;
+        }
+
+        .btn-lg {
+            font-size: .95rem;
+        }
+
+        }
+    </style>
+}
+
+@section Scripts {
+    <script>
+        const motivosCache = [];
+        window.routeHeader = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(ViewBag.RouteHeader));
+        window.routeData = @Html.Raw(Newtonsoft.Json.JsonConvert.SerializeObject(Model));
+
+        function inicializarRutas() {
+            cargarMotivos().then(() => {
+                window.routeData.forEach((item, i) => {
+                    const cardWrapper = document.querySelectorAll('.route-card-wrapper')[i];
+                    if (!cardWrapper) return;
+
+                    const clase = obtenerClaseColor(item);
+                    cardWrapper.classList.add(clase);
+
+                    const estatusRT = item.EstatusRT?.trim().toLowerCase();
+                    const estatusGnx = item.EstatusGnx?.trim();
+
+                    if (estatusGnx?.toLowerCase().includes('cancelado')) {
+                        
+                        const content = cardWrapper.querySelector('.route-card-content');
+                        if (content) content.classList.add('text-danger');
+
+                        const label = cardWrapper.querySelector('.route-cancelado');
+                        if (label) label.classList.remove('d-none');
+                    }
+
+                    if (item.RddInfo.toString().trim().toUpperCase() !== 'NO') {
+                        const rddLabel = cardWrapper.querySelector('.route-rdd');
+                        if (rddLabel) rddLabel.classList.remove('d-none');
+                    }
+
+
+                    if (estatusRT === 'ruta trabajandose') {
+                        const eventoDiv = cardWrapper.querySelector('.route-evento');
+                        if (!eventoDiv) return;
+                        eventoDiv.classList.remove('d-none');
+
+                        let motivos = [];
+                        const estatusRuta = item.EstatusRuta?.trim().toLowerCase();
+                        
+
+                        if (estatusGnx?.toLowerCase().includes('cancelado')) {
+                            motivos = motivosCache.filter(x => x.cod_mot.trim() === '15');
+
+                            const content = cardWrapper.querySelector('.route-card-content');
+                            if (content) content.classList.add('text-danger');
+
+                            const label = cardWrapper.querySelector('.route-cancelado');
+                            if (label) label.classList.remove('d-none');
+
+                        } else {
+                            motivos = motivosCache.filter(x => x.cod_mot.trim() !== '15');
+                        }
+
+
+                        const select = eventoDiv.querySelector('select.route-motivo-select');
+                        if (select) {
+                            select.id = `motivo-${i}`; // Asignamos id único
+                            select.innerHTML = motivos.map((m, idx) =>
+                                `<option value="${m.cod_mot}" ${idx === 0 ? 'selected' : ''}>
+                                    ${m.cod_mot} - ${m.des_mot}
+                                </option>`
+                            ).join('');
+                        }
+
+                        const btn = eventoDiv.querySelector('.btn-marcar-evento');
+                        if (btn) btn.onclick = () => asignarEvento(i);
+                    }
+                });
+            });
+        }
+
+        async function cargarMotivos() {
+            try {
+                const res = await fetch("@Url.Action("GetReasons", "Operator")");
+                if (!res.ok) return;
+                const data = await res.json();
+                motivosCache.length = 0;
+                data.forEach(x => motivosCache.push(x));
+            } catch { }
+        }
+
+        function obtenerClaseColor(item) {
+            const estatus = item.EstatusRT?.trim().toLowerCase();
+            const motivo = item.Motivo?.trim().toLowerCase();
+
+            console.log('EstatusRT:', estatus, '| Motivo:', motivo);
+
+            if (estatus === 'ruta aun no aceptada') return 'route-neutral';
+            if (estatus === 'ruta trabajandose' && motivo === 'no marcado aun') return 'route-gray';
+            if (
+                (estatus === 'ruta trabajandose' && motivo !== 'no marcado aun') ||
+                (estatus === '1-cerrado' && (
+                    motivo === '1-interfaz entrega para genesix generada' ||
+                    motivo === '4-interfaz retención para genesix generada'
+                ))
+            ) return 'route-green';
+            if (estatus === 'ruta finalizada') return 'route-orange';
+            if (motivo === '3-asn generado') return 'route-yellow';
+            if (motivo === '2-generando asn para wms') return 'route-orange';
+            if (motivo === 'x-esperando interfaz de evento') return 'route-red';
+
+            return 'route-neutral';
+        }
+
+        function renderMotivos(item, index) {
+            const estatusRT = item.EstatusRT?.trim().toLowerCase();
+            if (estatusRT !== 'ruta trabajandose') return '';
+
+            let motivos = [];
+            const estatusRuta = item.EstatusRuta?.trim().toLowerCase();
+            const estatusGnx = item.EstatusGnx?.trim();
+
+            if (estatusRuta === 'cancelado') {
+                motivos = motivosCache.filter(x => x.cod_mot === '15');
+            } else if (!estatusGnx) {
+                motivos = motivosCache.filter(x => x.cod_mot !== '15');
+            } else {
+                motivos = motivosCache;
+            }
+
+
+            if (motivos.length === 0) return '';
+
+            let options = '';
+            motivos.forEach((m, i) => {
+                options += `<option value="${m.cod_mot}" ${i === 0 ? 'selected' : ''}>
+                                ${m.cod_mot} - ${m.des_mot}
+                            </option>`;
+            });
+
+            return `
+                <div class="row mt-3">
+                    <div class="col-md-8">
+                        <select id="motivo-${index}" class="form-select">
+                            ${options}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <button class="btn btn-success w-100"
+                                onclick="asignarEvento(${index})">
+                            Marcar evento
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function asignarEvento(index) {
+            const item = window.routeData[index];
+            const select = document.getElementById(`motivo-${index}`);
+            const motivo = select ? select.value : '';
+
+            if (!item || !window.routeHeader) {
+                console.error("Datos incompletos para asignar evento", item, window.routeHeader);
+                Swal.fire({
+                    title: "Error",
+                    text: "No se pudieron obtener los datos del evento.",
+                    icon: "error",
+                    confirmButtonText: "Aceptar"
+                });
+                return;
+            }
+
+            const request = {
+                Header: window.routeHeader,
+                Detail: {
+                    FecAct: item.FecAct,
+                    CarSal: item.CarSal,
+                    OrdRel: item.OrdRel,
+                    NumScn: item.NumScn,
+                    CodPto: item.CodPto,
+                    CodCli: item.CodCli,
+                    Cliente: item.Cliente,
+                    EstatusRuta: item.EstatusRuta,
+                    EstatusGnx: item.EstatusGnx,
+                    EstatusRT: item.EstatusRT,
+                    Motivo: motivo,
+                    RddInfo: item.RddInfo
+                }
+            };
+
+            fetch("/Operator/AssignEvent", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(request)
+            })
+            .then(async res => {
+                let r;
+                try {
+                    r = await res.json();
+                } catch {
+                    r = { success: false, message: "Respuesta inválida del servidor" };
+                }
+                return r;
+            })
+            .then(r => {
+                console.log("Respuesta del servidor:", r); // Para depuración
+                if (r && r.success) {
+                    Swal.fire({
+                        title: "Éxito",
+                        text: r.message || "Evento marcado correctamente",
+                        icon: "success",
+                        confirmButtonText: "Aceptar"
+                    }).then(() => location.reload());
+                } else {
+                    Swal.fire({
+                        title: "Error",
+                        text: r?.message || "No se pudo marcar el evento",
+                        icon: "error",
+                        confirmButtonText: "Aceptar"
+                    });
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                Swal.fire({
+                    title: "Error",
+                    text: "Ocurrió un error al marcar el evento.",
+                    icon: "error",
+                    confirmButtonText: "Aceptar"
+                });
+            });
+        }
+
+
+        document.addEventListener("DOMContentLoaded", inicializarRutas);
+
+        async function verDetalleApi(ord_rel) {
+            try {
+                const cred = await fetch("/OracleData/GetCredentials").then(r => r.json());
+                const ep = await fetch("/OracleData/GetEndPointOLPN").then(r => r.json());
+
+                const finalUrl = ep.endPoint.replace("ORDER_RELEASE", encodeURIComponent(ord_rel));
+
+                $.ajax({
+                    url: finalUrl,
+                    method: "GET",
+                    headers: {
+                        "Authorization": "Basic " + btoa(cred.username + ":" + cred.password),
+                        "Content-Type": "application/json"
+                    },
+                    success: function (data) {
+                        mostrarDetalleEnModal(data?.results || [], ord_rel);
+                    },
+                    error: function (xhr) {
+                        document.getElementById("detalleOrdenModalBody").innerHTML =
+                            `<div class="text-danger">${xhr.status} ${xhr.statusText}</div>`;
+                        bootstrap.Modal.getOrCreateInstance(
+                            document.getElementById('detalleOrdenModal')
+                        ).show();
+                    }
+                });
+            } catch (e) {
+                document.getElementById("detalleOrdenModalBody").innerHTML =
+                    `<div class="text-danger">${e.message}</div>`;
+                bootstrap.Modal.getOrCreateInstance(
+                    document.getElementById('detalleOrdenModal')
+                ).show();
+            }
+        }
+
+        function mostrarDetalleEnModal(detalles, ord_rel) {
+            let html = `<h6>Orden: ${ord_rel}</h6>
+                <table class="table table-bordered mt-3">
+                <thead>
+                    <tr>
+                        <th>Producto</th>
+                        <th>SKU</th>
+                        <th>OLPN</th>
+                        <th>Cantidad</th>
+                    </tr>
+                </thead><tbody>`;
+
+            if (!detalles.length) {
+                html += `<tr><td colspan="4" class="text-center">Sin información</td></tr>`;
+            } else {
+                detalles
+                    .filter(x => x.LpnStatus === "Shipped")
+                    .forEach(d => {
+                        html += `
+                        <tr>
+                            <td>${d.Product}</td>
+                            <td>${d.Sku}</td>
+                            <td>${d.Olpn}</td>
+                            <td>${d.Quantity}</td>
+                        </tr>`;
+                    });
+            }
+
+            html += `</tbody></table>`;
+            document.getElementById("detalleOrdenModalBody").innerHTML = html;
+            bootstrap.Modal.getOrCreateInstance(
+                document.getElementById('detalleOrdenModal')
+            ).show();
+        }
+    </script>
+}
+

@@ -81,6 +81,7 @@ namespace BL.BaseControl
                                         WHERE pto_alm = {cod_pto}
                                         AND estatus = 0
                                         AND DATE(fec_car) > '03102025'
+                                        AND car_sal NOT IN (SELECT car_sal FROM ora_asignacion_operador WHERE pto_alm = {cod_pto})
                                         GROUP BY 1,2,3
                                         ORDER BY 2
                                         ";

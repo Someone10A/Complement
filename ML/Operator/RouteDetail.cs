@@ -20,5 +20,6 @@ namespace ML.Operator
         public string EstatusRT { get; set; }
         public string Motivo { get; set; }
         public string RddInfo { get; set; }
+        public string Dirreccion { get; set; }
     }
 }

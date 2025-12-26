@@ -1,0 +1,323 @@
+﻿@{
+    ViewData["Title"] = "Operadores";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Operadores</h2>
+    <hr />
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#modalAdd">
+        Agregar Operador
+    </button>
+
+    <table class="table table-hover table-striped table-bordered align-middle mb-0" id="tablaOperadores">
+        <thead class="table-dark">
+            <tr>
+                <th>RFC</th>
+                <th>Nombre</th>
+                <th>Estatus</th>
+                <th>Password</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+</div>
+
+<div id="sendOverlay"
+     style="display:none; position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; background: rgba(0,0,0,0.4);
+            z-index: 9999; justify-content: center; align-items: center; flex-direction: column;">
+    <div class="spinner"
+         style="width: 60px; height: 60px; border: 8px solid #eee;
+                border-top: 8px solid #3498db; border-radius: 50%;
+                animation: spin 1s linear infinite;">
+    </div>
+</div>
+
+<div class="modal fade" id="modalAdd" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5>Agregar Operador</h5>
+                <button class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+
+            <div class="modal-body">
+                <label>RFC</label>
+                <input id="rfcAdd" maxlength="15" class="form-control" />
+
+                <label class="mt-2">Nombre</label>
+                <input id="nomAdd" maxlength="60" class="form-control" />
+
+                <label class="mt-2">Password</label>
+                <input id="passAdd" maxlength="16" class="form-control" />
+            </div>
+
+            <div class="modal-footer">
+                <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button class="btn btn-success" onclick="addOperador()">Guardar</button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section styles {
+    <style>
+        @@keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 46px;
+            height: 24px;
+        }
+
+            .switch input {
+                display: none;
+            }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            background-color: #ccc;
+            transition: .4s;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+            .slider:before {
+                position: absolute;
+                content: "";
+                height: 18px;
+                width: 18px;
+                left: 3px;
+                bottom: 3px;
+                background-color: white;
+                transition: .4s;
+            }
+
+        input:checked + .slider {
+            background-color: #4caf50;
+        }
+
+            input:checked + .slider:before {
+                transform: translateX(22px);
+            }
+
+        .slider.round {
+            border-radius: 34px;
+        }
+
+            .slider.round:before {
+                border-radius: 50%;
+            }
+    </style>
+}
+
+@section scripts{
+    <script>
+        let tablaDT = null
+        ;
+
+        $(document).ready(function () 
+        {
+            getOperadores();
+        });
+
+        function mostrarOverlay() {
+            $("#sendOverlay").css("display", "flex");
+        }
+
+        function ocultarOverlay() {
+            $("#sendOverlay").hide();
+        }
+
+        function getOperadores() {
+            mostrarOverlay();
+
+            $.ajax({
+                url: "/OutbondShipmentOperator/GetOperadores",
+                type: "GET",
+                success: function (data) {
+
+                    let rows = "";
+
+                    data.forEach(x => {
+                        rows += `
+                            <tr>
+                                <td>${x.rfcOpe}</td>
+                                <td>${x.nomOpe}</td>
+                                <td>
+                                    <label class="switch">
+                                        <input type="checkbox" ${x.active === "1" ? "checked" : ""}
+                                               onchange="updateStatus('${x.rfcOpe}', this.checked ? '1' : '0')">
+                                        <span class="slider round"></span>
+                                    </label>
+                                </td>
+                                <td>
+                                    <button class="btn btn-warning btn-sm"
+                                            onclick="resetPassword('${x.rfcOpe}')">
+                                        Reset
+                                    </button>
+                                </td>
+                            </tr>`;
+                    });
+
+                    $("#tablaOperadores tbody").html(rows);
+
+                    if (tablaDT != null) {
+                        tablaDT.destroy();
+                    }
+
+                    tablaDT = $("#tablaOperadores").DataTable({
+                        language: {
+                            url: "//cdn.datatables.net/plug-ins/1.13.4/i18n/es-MX.json"
+                        },
+                        pageLength: 10,
+                        responsive: true,
+                        order: [],
+                    });
+                },
+                complete: function () {
+                    ocultarOverlay();
+                }
+            });
+        }
+
+        function updateStatus(rfc, active) {
+            mostrarOverlay();
+
+            $.ajax({
+                url: "/OutbondShipmentOperator/UpdateStatus",
+                type: "PATCH",
+                data: { rfcOpe: rfc, active: active },
+                success: async function () {
+                    getOperadores();
+                },
+                complete: function () {
+                    ocultarOverlay();
+                }
+            });
+        }
+
+
+        function addOperador() {
+            let rfc = $("#rfcAdd").val().trim();
+            let nombre = $("#nomAdd").val().trim();
+            let pass = $("#passAdd").val().trim();
+
+            if (!rfc || !nombre || !pass) {
+                Swal.fire("Error", "Todos los campos son obligatorios", "error");
+                return;
+            }
+
+            if (!/^(?=.*[A-Za-z])[A-Za-z0-9]+$/.test(rfc)) {
+                Swal.fire("Error", "El RFC debe ser alfanumérico y contener al menos una letra", "error");
+                return;
+            }
+
+            let ope = {
+                rfcOpe: rfc,
+                nomOpe: nombre,
+                password: pass,
+                active: "1"
+            };
+
+            mostrarOverlay();
+
+            $.ajax({
+                url: "/OutbondShipmentOperator/AddOperador",
+                type: "POST",
+                contentType: "application/json",
+                data: JSON.stringify(ope),
+                success: async function (resp) {
+                    if (resp.success) {
+                        $("#modalAdd").modal("hide");
+
+                        await new Promise(r => setTimeout(r, 1000));
+                        getOperadores();
+
+                        Swal.fire({
+                            icon: "success",
+                            title: "Operador agregado",
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+
+                    } else {
+                        Swal.fire({
+                            icon: "error",
+                            title: "Error",
+                            text: resp.message
+                        });
+                    }
+                },
+                complete: function () {
+                    ocultarOverlay();
+                }
+            });
+        }
+
+
+        function resetPassword(rfc) {
+            Swal.fire({
+                title: "Nueva contraseña",
+                input: "password",
+                inputAttributes: {
+                    maxlength: 16
+                },
+                inputPlaceholder: "Máximo 16 caracteres",
+                showCancelButton: true,
+                confirmButtonText: "Actualizar",
+                cancelButtonText: "Cancelar",
+                preConfirm: (value) => {
+                    if (!value) {
+                        Swal.showValidationMessage("Debes ingresar una contraseña");
+                        return false;
+                    }
+                    if (value.length > 16) {
+                        Swal.showValidationMessage("La contraseña excede el máximo permitido");
+                        return false;
+                    }
+                    return value;
+                }
+            }).then(result => {
+                if (!result.isConfirmed) return;
+
+                mostrarOverlay();
+
+                $.ajax({
+                    url: "/OutbondShipmentOperator/ResetPassword",
+                    type: "PATCH",
+                    data: { rfcOpe: rfc, newPassword: result.value },
+                    success: function () {
+                        Swal.fire({
+                            icon: "success",
+                            title: "Contraseña actualizada",
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    },
+                    complete: function () {
+                        ocultarOverlay();
+                    }
+                });
+            });
+        }
+
+    </script>
+
+}

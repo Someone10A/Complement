@@ -49,6 +49,14 @@ namespace BL.Menu
                 menu.Add(new MenuItem("BaseControlOTM", "BaseControl", "BaseControlPast", "bi-clipboard-check-fill"));
             }
 
+            if (cv_area == "OPE")
+            {
+                //new("Asignado", "Operator", "GetAssignedRoute", "bi-signpost-2 bi-person-check"),
+                //new("Historico", "Operator", "GetHistorical", "bi-signpost-2 bi-archive")
+                menu.Add(new MenuItem("Asignado", "Operator", "GetAssignedRoute", "bi-signpost-2 bi-person-check"));
+                menu.Add(new MenuItem("Historico", "Operator", "GetHistorical", "bi-signpost-2 bi-archive"));
+            }
+
             return menu;
         }
 
@@ -74,9 +82,11 @@ namespace BL.Menu
                 new("Ordenes Listas", "DeliveryPlanner", "GetReadyOrdersPerDate", "bi-file-earmark-check bi-send"),
                 new("Planeacion", "DeliveryPlanner", "Planning", "bi-map bi-diagram-3"),
                 new("Planeaciones", "DeliveryPlanner", "Plans", "bi-map bi-truck"),
-                new("Operadores", "RouteOperator", "ListOperadores", "bi-people"),
-                new("Carga de salida", "RouteOperator", "ListCarSal", "bi-box-seam"),
-                new("ReSender", "ReSender", "ReSender", "bi-arrow-clockwise bi-send")
+                new("Operadores", "OutbondShipmentOperator", "Operadores", "bi-people bi-truck"),
+                new("Carga de salida", "OutbondShipmentOperator", "OutbondShipment", "bi-box-seam"),
+                new("ReSender", "ReSender", "ReSender", "bi-arrow-clockwise bi-send"),
+                new("Asignado", "Operator", "GetAssignedRoute", "bi-signpost-2 bi-person-check"),
+                new("Historico", "Operator", "GetHistorical", "bi-signpost-2 bi-archive")
 
             };
         }

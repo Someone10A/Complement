@@ -116,12 +116,11 @@ namespace BL.CartaPorte
             ML.Result result = new ML.Result();
             try
             {
-                string query = @"
-                    SELECT * FROM tra_pro
-                    WHERE cod_emp = 1
-                    AND cod_pto = 870
-                    ORDER BY num_eco ASC
-                ";
+                string query = @"SELECT * FROM tra_pro
+                                    WHERE cod_emp = 1
+                                    AND cod_pto = 870
+                                    ORDER BY num_eco ASC
+                                ";
 
                 using (var connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {

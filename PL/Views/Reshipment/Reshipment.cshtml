@@ -1,0 +1,455 @@
+﻿@{
+    ViewData["Title"] = "Reembarques";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="text-primary fw-bold">Reembarques</h2>
+        <button id="btnRefresh" class="btn btn-outline-primary btn-lg">
+            <i class="bi bi-arrow-repeat"></i> Refrescar
+        </button>
+    </div>
+
+    <div id="messageContainer"></div>
+
+    <div class="table-responsive shadow-sm rounded-3 bg-white p-3">
+        <table id="reshipmentTable" class="table table-hover table-striped table-bordered align-middle mb-0 w-100">
+            <thead class="table-dark">
+                <tr>
+                    <th>Carga Salida</th>
+                    <th>Estatus Carga</th>
+                    <th>Sig. Almacén</th>
+                    <th class="text-center" style="width: 120px">Actualizar Sig. Almacén</th>
+                    <th class="text-center" style="width: 120px">Enviar</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal para Actualizar SigAlmacen -->
+<div class="modal fade" id="sigAlmacenModal" tabindex="-1" aria-labelledby="sigAlmacenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-md">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="sigAlmacenModalLabel">Actualizar Siguiente Almacén</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editIdCarga" />
+                <input type="hidden" id="editCargaSalida" />
+
+                <div class="mb-3">
+                    <label for="editSigAlmacen" class="form-label">Carga Salida</label>
+                    <input type="text" class="form-control" id="editCargaSalidaDisplay" readonly disabled />
+                </div>
+
+                <div class="mb-3">
+                    <label for="editSigAlmacen" class="form-label">Siguiente Almacén</label>
+                    <select id="editSigAlmacen" class="form-select">
+                        <option value="">-- Seleccionar Almacén --</option>
+                        <option value="">(Vacío / Ninguno)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnSaveSigAlmacen" class="btn btn-primary">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+    <div class="spinner-custom"></div>
+</div>
+
+@section Styles {
+    <style>
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spinner-custom {
+            width: 60px;
+            height: 60px;
+            border: 8px solid #eee;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @@keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        .btn-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let facilitiesList = []; // Para almacenar lista de almacenes xd
+
+        $(document).ready(function () {
+            loadReshipments();
+            $('#btnRefresh').on('click', function () {
+                loadReshipments();
+            });
+        });
+
+        function showLoader() {
+            $('#loadingOverlay').css('display', 'flex');
+        }
+
+        function hideLoader() {
+            $('#loadingOverlay').hide();
+        }
+
+        function loadReshipments() {
+            showLoader();
+
+            if ($.fn.DataTable.isDataTable('#reshipmentTable')) {
+                $('#reshipmentTable').DataTable().clear().destroy();
+                $('#reshipmentTable tbody').empty();
+            }
+
+            $.ajax({
+                url: '@Url.Action("GetReshipments", "Reshipment")',
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    if (response.correct) {
+                        $('#reshipmentTable').DataTable({
+                            data: response.data,
+                            columns: [
+                                { data: 'cargaSalida', defaultContent: '' },
+                                {
+                                    data: 'estatusCarga',
+                                    defaultContent: '',
+                                    render: function(data, type, row) {
+                                        return data || getStatusTranslation(row.idEstatusCarga);
+                                    }
+                                },
+                                { data: 'sigAlmacen', defaultContent: '' },
+                                {
+                                    data: null,
+                                    className: 'text-center',
+                                    orderable: false,
+                                    searchable: false,
+                                    render: function(data, type, row) {
+                                        return `<button class="btn btn-warning btn-sm btn-update-sigalmacen btn-icon"
+                                                       data-idcarga="${row.idCarga}"
+                                                       data-cargasalida="${row.cargaSalida}"
+                                                       data-facility="${row.facility}"
+                                                       data-sigalmacen="${row.sigAlmacen || ''}">
+                                                    <i class="bi bi-pencil-square"></i> Actualizar
+                                                </button>`;
+                                    }
+                                },
+                                {
+                                    data: null,
+                                    className: 'text-center',
+                                    orderable: false,
+                                    searchable: false,
+                                    render: function(data, type, row) {
+                                        const isEnabled = (row.idEstatusCarga === '50');
+                                        const buttonClass = isEnabled ? 'btn-primary' : 'btn-secondary';
+                                        const disabledAttr = isEnabled ? '' : 'disabled';
+                                        return `<button class="btn ${buttonClass} btn-sm btn-ship btn-icon"
+                                                        ${disabledAttr}
+                                                        data-idcarga="${row.idCarga}"
+                                                        data-cargasalida="${row.cargaSalida}"
+                                                        data-sigalmacen="${row.sigAlmacen || ''}"
+                                                        data-idestatus="${row.idEstatusCarga}"
+                                                        data-facility="${row.facility || ''}">
+                                                    <i class="bi bi-send"></i> Enviar
+                                                </button>`;
+                                    }
+                                }
+                            ],
+                            pageLength: 30,
+                            lengthMenu: [30, 50, 100],
+                            language: {
+                                search: "Buscar:",
+                                info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                                infoEmpty: "No hay registros disponibles",
+                                emptyTable: "No hay datos para mostrar",
+                                zeroRecords: "No se encontraron registros",
+                                paginate: {
+                                    first: "Primero",
+                                    last: "Último",
+                                    next: "Siguiente",
+                                    previous: "Anterior"
+                                }
+                            }
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Error',
+                            text: response.message || 'Error al cargar los datos'
+                        });
+                    }
+                },
+                error: function (xhr) {
+                    if (xhr.status === 401) {
+                        window.location.href = '/Login/Login';
+                        return;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: xhr.responseText || 'Error al cargar los datos'
+                    });
+                },
+                complete: function () {
+                    hideLoader();
+                }
+            });
+        }
+
+        // Traducción del status por si no viene el texto
+        function getStatusTranslation(statusId) {
+            const statusMap = {
+                '0': 'Creada',
+                '10': 'Comienzo registrado',
+                '30': 'Carga iniciada',
+                '40': 'Cierre de carga en progreso',
+                '50': 'Cargada',
+                '80': 'Registrada salida',
+                '85': 'Carga en progreso',
+                '90': 'Enviada',
+                '99': 'Cancelada'
+            };
+            return statusMap[statusId] || `Desconocido (${statusId})`;
+        }
+
+        // Cargar lista de facilities para el modal
+        async function loadFacilities(currentSigAlmacen) {
+            showLoader();
+
+            try {
+                const response = await $.ajax({
+                    url: '@Url.Action("GetFacilities", "Reshipment")',
+                    type: 'GET',
+                    data: { facility: currentSigAlmacen }
+                });
+
+                console.log('Respuesta completa:', response);
+                console.log('response.correct:', response.correct);
+                console.log('response.data:', response.data);
+
+                if (response.correct && response.data) {
+                    facilitiesList = response.data;
+                    populateFacilitySelect(currentSigAlmacen);
+                } else {
+                    Swal.fire('Error', response.message || 'No se pudieron cargar los almacenes', 'error');
+                    throw new Error(response.message);
+                }
+            } catch (xhr) {
+                console.error('Error en la petición:', xhr);
+                if (xhr.status === 401) {
+                    window.location.href = '/Login/Login';
+                    return;
+                }
+                Swal.fire('Error', 'Error al cargar los almacenes', 'error');
+                throw xhr;
+            } finally {
+                hideLoader();
+            }
+        }
+
+        function populateFacilitySelect(selectedValue) {
+            const $select = $('#editSigAlmacen');
+            $select.empty();
+            $select.append('<option value="">-- Seleccionar Almacén --</option>');
+            $select.append('<option value="">(Vacío / Ninguno)</option>');
+
+            if (facilitiesList && facilitiesList.length > 0) {
+                facilitiesList.forEach(function(item) {
+                    const facilityCode = item.facility || item[0] || '';
+                    const facilityDesc = item.desc || item[1] || '';
+                    const displayText = facilityDesc ? `${facilityCode} - ${facilityDesc}` : facilityCode;
+                    $select.append(`<option value="${facilityCode}" ${selectedValue === facilityCode ? 'selected' : ''}>${displayText}</option>`);
+                });
+            }
+        }
+
+        // Botón Actualizar SigAlmacen
+        $(document).on('click', '.btn-update-sigalmacen', async function () {
+            const idCarga = $(this).data('idcarga');
+            const cargaSalida = $(this).data('cargasalida');
+            const facility = $(this).data('facility') || '';
+
+            $('#editIdCarga').val(idCarga);
+            $('#editCargaSalida').val(cargaSalida);
+            $('#editCargaSalidaDisplay').val(cargaSalida);
+
+            try {
+                await loadFacilities(facility);
+                $('#sigAlmacenModal').modal('show');
+            } catch (e) {
+                console.error('Error:', e);
+            }
+        });
+
+        // Guardar cambios de SigAlmacen (PATCH) - CORREGIDO a PascalCase
+        $('#btnSaveSigAlmacen').on('click', function () {
+            const idCarga = $('#editIdCarga').val();
+            const cargaSalida = $('#editCargaSalidaDisplay').val();
+            const newSigAlmacen = $('#editSigAlmacen').val() || '';
+
+            if (!idCarga) {
+                Swal.fire('Error', 'No se pudo identificar la carga', 'error');
+                return;
+            }
+
+            // Ahora usa PascalCase para que coincida con la clase C#
+            const reshipmentData = {
+                IdCarga: idCarga,
+                CargaSalida: cargaSalida,
+                SigAlmacen: newSigAlmacen
+            };
+
+            Swal.fire({
+                title: '¿Actualizar almacén?',
+                text: `¿Deseas actualizar el siguiente almacén de la carga "${cargaSalida}" a "${newSigAlmacen || '(Vacío)'}"?`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#3085d6',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, actualizar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    showLoader();
+                    $.ajax({
+                        url: '@Url.Action("PatchLoadById", "Reshipment")',
+                        type: 'PATCH',
+                        contentType: 'application/json',
+                        data: JSON.stringify(reshipmentData),
+                        success: function (response) {
+                            if (response.correct) {
+                                Swal.fire('Actualizado', response.message || 'Almacén actualizado correctamente', 'success');
+                                $('#sigAlmacenModal').modal('hide');
+                                loadReshipments();
+                            } else {
+                                Swal.fire('Error', response.message || 'Error al actualizar', 'error');
+                            }
+                        },
+                        error: function (xhr) {
+                            let errorMsg = 'Error al actualizar el almacén';
+                            if (xhr.status === 401) {
+                                window.location.href = '/Login/Login';
+                                return;
+                            }
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                errorMsg = response.message || errorMsg;
+                            } catch(e) {}
+                            Swal.fire('Error', errorMsg, 'error');
+                        },
+                        complete: function () {
+                            hideLoader();
+                        }
+                    });
+                }
+            });
+        });
+
+        // Botón Enviar (Ship) - CORREGIDO: aseguramos que Facility tenga valor y PascalCase
+        $(document).on('click', '.btn-ship', function () {
+            const $btn = $(this);
+
+            if ($btn.prop('disabled')) {
+                return;
+            }
+
+            const idCarga = $btn.data('idcarga');
+            const cargaSalida = $btn.data('cargasalida');
+            const sigAlmacen = $btn.data('sigalmacen') || '';
+            const idEstatus = $btn.data('idestatus');
+            const facility = $btn.data('facility') || '';
+
+            if (idEstatus != 50 && idEstatus != '50') {
+                Swal.fire('Acción no permitida', `El estatus actual no permite enviar la carga.`, 'warning');
+                return;
+            }
+
+            Swal.fire({
+                title: 'Confirmar envío',
+                html: `¿Seguro que quieres enviar la carga <strong>${cargaSalida}</strong>?<br><br>${sigAlmacen ? `Siguiente almacén: <strong>${sigAlmacen}</strong>` : '<span class="text-warning">⚠️ No tiene almacén asignado</span>'}`,
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonColor: '#28a745',
+                cancelButtonColor: '#d33',
+                confirmButtonText: 'Sí, enviar',
+                cancelButtonText: 'Cancelar'
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    // Objeto en PascalCase, coincide con la clase ML.Reshipment.Reshipment
+                    const reshipmentData = {
+                        Facility: String(facility),
+                        IdCarga: String(idCarga),
+                        CargaSalida: cargaSalida,
+                        IdEstatusCarga: String(idEstatus),
+                        EstatusCarga: getStatusTranslation(idEstatus),
+                        SigAlmacen: sigAlmacen ? String(sigAlmacen) : ''
+                    };
+
+                    console.log('Enviando (ShipReshipment):', JSON.stringify(reshipmentData));
+
+                    showLoader();
+                    $.ajax({
+                        url: '@Url.Action("ShipReshipment", "Reshipment")',
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify(reshipmentData),
+                        success: function (response) {
+                            if (response.correct) {
+                                Swal.fire('Envío exitoso', response.message, 'success');
+                                loadReshipments();
+                            } else {
+                                Swal.fire('Error', response.message, 'error');
+                            }
+                        },
+                        error: function (xhr) {
+                            if (xhr.status === 401) {
+                                window.location.href = '/Login/Login';
+                                return;
+                            }
+                            Swal.fire('Error', 'Error al enviar la carga', 'error');
+                        },
+                        complete: function () {
+                            hideLoader();
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+}

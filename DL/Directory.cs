@@ -20,5 +20,16 @@ namespace DL
                 return null;
             }
         }
+        public static string? GetOutputPathLPZ(string mode)
+        {
+            try
+            {
+                return Environment.GetEnvironmentVariable("LPZPATH");
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
     }
 }

@@ -56,5 +56,64 @@ namespace DL
         {
             return Environment.GetEnvironmentVariable("CON_SIG_PRO2");
         }
+
+
+        public static string? GetInterfacePath(string mode)
+        {
+            try
+            {
+                return Environment.GetEnvironmentVariable("INTERPATH");
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public static string? GetLegacyIp(string mode)
+        {
+            try
+            {
+                return Environment.GetEnvironmentVariable("LEGACYIP");
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+        public static string? GetLegacyUser(string mode)
+        {
+            try
+            {
+                return Environment.GetEnvironmentVariable("LEGACYUSER");
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        public static string? GetLegacyPwd(string mode)
+        {
+            try
+            {
+                return Environment.GetEnvironmentVariable("LEGACYPWD");
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
+
+        public static string? GetLegacyPort(string mode)
+        {
+            try
+            {
+                return Environment.GetEnvironmentVariable("LEGACYPORT");
+            }
+            catch (Exception ex)
+            {
+                return null;
+            }
+        }
     }
 }

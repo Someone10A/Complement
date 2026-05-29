@@ -12,6 +12,7 @@ namespace ML.Canguro
         public string Tienda { get; set; }
         public string Scn { get; set; }
         public string Transfer { get; set; }
+        public string Intento { get; set; }
         public string UltFecha { get; set; }
         public string IdEstatus { get; set; }
         public string Estatus { get; set; }

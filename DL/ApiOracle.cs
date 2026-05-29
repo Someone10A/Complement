@@ -89,5 +89,40 @@ namespace DL
             }
             return "https://te6.wms.ocs.oraclecloud.com/sears2_test/wms/lgfapi/v10/entity/ib_shipment/{id}";
         }
+        public static string PatchLoadById(string mode)
+        {
+            if (mode == "PRO")
+            {
+                return "https://e6.wms.ocs.oraclecloud.com/sears2/wms/lgfapi/v10/entity/load/{id}";
+            }
+            return "https://te6.wms.ocs.oraclecloud.com/sears2_test/wms/lgfapi/v10/entity/load/{id}";
+        }
+        
+        public static string ShipReshipment(string mode)
+        {
+            if (mode == "PRO")
+            {
+                return "https://e6.wms.ocs.oraclecloud.com/sears2/wms/lgfapi/v10/entity/load/ship/";
+            }
+            return "https://te6.wms.ocs.oraclecloud.com/sears2_test/wms/lgfapi/v10/entity/load/ship/";
+        }
+
+        public static string GetLoads(string mode)
+        {
+            if(mode == "PRO")
+            {
+                return "https://e6.wms.ocs.oraclecloud.com/sears2/wms/lgfapi/v10/entity/load?facility_id__code={facility}&type=O&status_id__in=0,10,30,40,50,80,85&values_list=id:IdCarga,load_nbr:CargaSalida,status_id:IdEstatusCarga,cust_field_2:SigAlmacen";
+            }
+            return "https://te6.wms.ocs.oraclecloud.com/sears2_test/wms/lgfapi/v10/entity/load?facility_id__code={facility}&type=O&status_id__in=0,10,30,40,50,80,85&values_list=id:IdCarga,load_nbr:CargaSalida,status_id:IdEstatusCarga,cust_field_2:SigAlmacen";
+        }
+
+        public static string GetIdStatusByLoad(string mode)
+        {
+            if(mode == "PRO")
+            {
+                return "https://e6.wms.ocs.oraclecloud.com/sears2/wms/lgfapi/v10/entity/load?facility_id__code={facility}&type=O&load_nbr={load}&values_list=status_id:IdEstatusCarga";
+            }
+            return "https://te6.wms.ocs.oraclecloud.com/sears2_test/wms/lgfapi/v10/entity/load?facility_id__code={facility}&type=O&load_nbr={load}&values_list=status_id:IdEstatusCarga";
+        }
     }
 }

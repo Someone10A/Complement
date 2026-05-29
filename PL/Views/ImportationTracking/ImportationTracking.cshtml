@@ -1,0 +1,467 @@
+﻿@{
+    ViewData["Title"] = "Importación Tracking";
+}
+
+<div class="container-fluid mt-1 px-2">
+    <h2 class="mb-4 text-primary fw-bold">Gestión de Etiquetas de Importación</h2>
+
+    <div id="messageContainer"></div>
+
+    <div class="mb-3">
+        <button type="button" id="btnNuevaOrden" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nueva Orden
+        </button>
+        <button type="button" id="btnRefrescar" class="btn btn-secondary ms-2">
+            <i class="fas fa-sync-alt"></i> Refrescar
+        </button>
+    </div>
+
+    <div class="table-responsive shadow-sm rounded-3 bg-white p-3">
+        <table id="workTable" class="table table-hover table-striped table-bordered align-middle mb-0 w-100">
+            <thead class="table-dark">
+                <tr>
+                    <th>No. Orden</th>
+                    <th>Almacén Destino</th>
+                    <th>Proveedor</th>
+                    <th>Pedimento</th>
+                    <th>Cantidad Bultos</th>
+                    <th class="text-center">Acción</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal Nueva Orden (EvaluateOC + Generate) -->
+<div class="modal fade" id="nuevaOrdenModal" tabindex="-1" aria-labelledby="nuevaOrdenModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="nuevaOrdenModalLabel">Nueva Orden de Importación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Paso 1: Capturar orden -->
+                <div id="stepCaptura">
+                    <div class="mb-3">
+                        <label for="txtNoOrden" class="form-label">Número de Orden (8 dígitos)</label>
+                        <input type="text" class="form-control" id="txtNoOrden" maxlength="8" placeholder="Ejemplo: 12345678" />
+                        <div class="form-text">Ingrese el número de orden de compra a 8 dígitos.</div>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Datos de la orden (se muestra después de EvaluateOC) -->
+                <div id="stepDatos" style="display:none;">
+                    <h6 class="fw-bold mb-3">Datos de la Orden</h6>
+                    <input type="hidden" id="hdnNoOrden" />
+                    <input type="hidden" id="hdnAlmacenDestino" />
+                    <input type="hidden" id="hdnDivision" />
+                    <input type="hidden" id="hdnIdProveedor" />
+                    <input type="hidden" id="hdnPasoE" />
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">No. Orden:</label>
+                            <p id="lblNoOrden" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Pedimento:</label>
+                            <p id="lblPedimento" class="form-control-plaintext"></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Almacén Destino:</label>
+                            <p id="lblAlmacenDestino" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">División:</label>
+                            <p id="lblDivision" class="form-control-plaintext"></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">ID Proveedor:</label>
+                            <p id="lblIdProveedor" class="form-control-plaintext"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Razón Social:</label>
+                            <p id="lblRazonSocial" class="form-control-plaintext"></p>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="txtCantidadBultos" class="form-label fw-bold">Cantidad de Bultos:</label>
+                            <input type="number" class="form-control" id="txtCantidadBultos" min="1" max="999" />
+                            <div class="form-text">Máximo 999 bultos</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnValidarOrden" class="btn btn-primary">Validar Orden</button>
+                <button type="button" id="btnGenerar" class="btn btn-success" style="display:none;">GENERAR</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Seleccionar Impresora -->
+<div class="modal fade" id="impresoraModal" tabindex="-1" aria-labelledby="impresoraModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="impresoraModalLabel">Seleccionar Impresora</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="hdnPrintNoOrden" />
+                <div class="mb-3">
+                    <label for="selectImpresora" class="form-label">Impresora:</label>
+                    <select class="form-select" id="selectImpresora">
+                        <option value="ptrdort1">ptrdort1</option>
+                        <option value="ptr021e2">ptr021e2</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarImpresion" class="btn btn-primary">Imprimir</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div id="loadingOverlay">
+    <div class="spinner-custom"></div>
+</div>
+
+@section Styles {
+    <style>
+        #loadingOverlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spinner-custom {
+            width: 60px;
+            height: 60px;
+            border: 8px solid #eee;
+            border-top: 8px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @@keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script>
+        let ordenValidada = null;
+
+        $(document).ready(function () {
+            loadOrdersList();
+
+            $('#btnNuevaOrden').on('click', function () {
+                resetModal();
+                $('#nuevaOrdenModal').modal('show');
+            });
+
+            $('#btnRefrescar').on('click', function () {
+                loadOrdersList();
+            });
+
+            $('#btnValidarOrden').on('click', function () {
+                let noOrden = $('#txtNoOrden').val().trim();
+
+                if (!noOrden) {
+                    Swal.fire('Error', 'Ingrese un número de orden', 'warning');
+                    return;
+                }
+
+                if (!/^\d{8}$/.test(noOrden)) {
+                    Swal.fire('Error', 'El número de orden debe tener 8 dígitos', 'warning');
+                    return;
+                }
+
+                validateOrder(noOrden);
+            });
+
+            $('#btnGenerar').on('click', function () {
+                let cantidadBultos = $('#txtCantidadBultos').val();
+
+                if (!cantidadBultos || parseInt(cantidadBultos) <= 0) {
+                    Swal.fire('Error', 'Ingrese una cantidad de bultos válida', 'warning');
+                    return;
+                }
+
+                let bultos = parseInt(cantidadBultos);
+                if (bultos > 999) {
+                    Swal.fire('Error', 'La cantidad de bultos no puede exceder 999', 'warning');
+                    return;
+                }
+
+                generateOrder(bultos);
+            });
+
+            $(document).on('click', '.btn-imprimir', function () {
+                let noOrden = $(this).data('orden');
+                $('#hdnPrintNoOrden').val(noOrden);
+                $('#impresoraModal').modal('show');
+            });
+
+            $('#btnConfirmarImpresion').on('click', function () {
+                let noOrden = $('#hdnPrintNoOrden').val();
+                let ptr = $('#selectImpresora').val();
+                printOrder(noOrden, ptr);
+            });
+        });
+
+        function showLoader() {
+            $('#loadingOverlay').css('display', 'flex');
+        }
+
+        function hideLoader() {
+            $('#loadingOverlay').hide();
+        }
+
+        function resetModal() {
+            $('#stepCaptura').show();
+            $('#stepDatos').hide();
+            $('#btnValidarOrden').show();
+            $('#btnGenerar').hide();
+            $('#txtNoOrden').val('');
+            $('#txtCantidadBultos').val('');
+            ordenValidada = null;
+        }
+
+        function loadOrdersList() {
+            showLoader();
+
+            if ($.fn.DataTable.isDataTable('#workTable')) {
+                $('#workTable').DataTable().clear().destroy();
+                $('#workTable tbody').empty();
+            }
+
+            $.ajax({
+                url: '@Url.Action("GetOrdersToPrint", "ImportationTracking")',
+                type: 'GET',
+                dataType: 'json',
+                success: function (response) {
+                    if (!response.correct && response.message) {
+                        $('#messageContainer').html(`
+                            <div class="alert alert-warning alert-dismissible fade show" role="alert">
+                                ${response.message}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        `);
+                    }
+
+                    let dataArray = [];
+                    if (response.data && Array.isArray(response.data)) {
+                        dataArray = response.data;
+                    } else if (response.data && !Array.isArray(response.data)) {
+                        dataArray = [response.data];
+                    }
+
+                    $('#workTable').DataTable({
+                        data: dataArray,
+                        columns: [
+                            { data: 'noOrden', defaultContent: '' },
+                            { data: 'almacenDestino', defaultContent: '' },
+                            { data: 'razonSocial', defaultContent: '' },
+                            { data: 'pedimento', defaultContent: '' },
+                            { data: 'cantidadBultos', defaultContent: '' },
+                            {
+                                data: null,
+                                className: 'text-center',
+                                orderable: false,
+                                searchable: false,
+                                render: function (data, type, row) {
+                                    return `<button class="btn btn-success btn-sm btn-imprimir" data-orden="${row.noOrden}">Imprimir</button>`;
+                                }
+                            }
+                        ],
+                        pageLength: 10,
+                        lengthMenu: [10, 20, 50, 100],
+                        language: {
+                            search: "Buscar:",
+                            info: "Mostrando _START_ a _END_ de _TOTAL_ registros",
+                            infoEmpty: "No hay registros disponibles",
+                            emptyTable: "No hay órdenes para imprimir",
+                            zeroRecords: "No se encontraron registros",
+                            paginate: {
+                                first: "Primero",
+                                last: "Último",
+                                next: "Siguiente",
+                                previous: "Anterior"
+                            }
+                        }
+                    });
+                },
+                error: function (xhr) {
+                    if (xhr.status === 401) {
+                        window.location.href = '/Login/Login';
+                        return;
+                    }
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: xhr.responseText || 'Error al cargar los datos'
+                    });
+                },
+                complete: function () {
+                    hideLoader();
+                }
+            });
+        }
+
+        function validateOrder(noOrden) {
+            showLoader();
+
+            $.ajax({
+                url: '@Url.Action("EvaluateOC", "ImportationTracking")',
+                type: 'GET',
+                data: { noOrden: noOrden },
+                dataType: 'json',
+                success: function (response) {
+                    if (response.correct && response.data && response.data.find) {
+                        ordenValidada = response.data;
+
+                        $('#hdnNoOrden').val(ordenValidada.noOrden);
+                        $('#hdnAlmacenDestino').val(ordenValidada.almacenDestino);
+                        $('#hdnDivision').val(ordenValidada.division);
+                        $('#hdnIdProveedor').val(ordenValidada.idProveedor);
+                        $('#hdnPasoE').val(ordenValidada.pasoE);
+
+                        $('#lblNoOrden').text(ordenValidada.noOrden);
+                        $('#lblPedimento').text(ordenValidada.pedimento);
+                        $('#lblAlmacenDestino').text(ordenValidada.almacenDestino);
+                        $('#lblDivision').text(ordenValidada.division);
+                        $('#lblIdProveedor').text(ordenValidada.idProveedor);
+                        $('#lblRazonSocial').text(ordenValidada.razonSocial);
+
+                        $('#txtCantidadBultos').val('');
+
+                        $('#stepCaptura').hide();
+                        $('#stepDatos').show();
+                        $('#btnValidarOrden').hide();
+                        $('#btnGenerar').show();
+
+                        Swal.fire('Orden Válida', `La orden ${noOrden} es apta para generar etiquetas`, 'success');
+                    } else {
+                        Swal.fire('Orden No Válida', response.message || 'La orden no es apta o ya fue generada', 'error');
+                        resetModal();
+                    }
+                },
+                error: function () {
+                    Swal.fire('Error', 'Error al validar la orden', 'error');
+                },
+                complete: function () {
+                    hideLoader();
+                }
+            });
+        }
+
+        function generateOrder(cantidadBultos) {
+            if (!ordenValidada) {
+                Swal.fire('Error', 'No hay una orden válida para generar', 'error');
+                return;
+            }
+
+            if (!ordenValidada.pasoE) {
+                Swal.fire('Error', 'La orden no cumple con el paso E requerido', 'error');
+                return;
+            }
+
+            let ordenCompra = {
+                NoOrden: ordenValidada.noOrden,
+                AlmacenDestino: ordenValidada.almacenDestino,
+                Division: ordenValidada.division,
+                IdProveedor: ordenValidada.idProveedor,
+                RazonSocial: ordenValidada.razonSocial,
+                Pedimento: ordenValidada.pedimento,
+                CantidadBultos: cantidadBultos.toString(),
+                PasoE: ordenValidada.pasoE,
+                Find: ordenValidada.find
+            };
+
+            showLoader();
+
+            $.ajax({
+                url: '@Url.Action("GetCanguroInfo", "ImportationTracking")',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(ordenCompra),
+                success: function (response) {
+                    if (response.correct) {
+                        Swal.fire('Éxito', response.message || 'Etiquetas generadas correctamente', 'success');
+                        $('#nuevaOrdenModal').modal('hide');
+                        resetModal();
+                        loadOrdersList();
+                    } else {
+                        Swal.fire('Error', response.message || 'Error al generar etiquetas', 'error');
+                    }
+                },
+                error: function () {
+                    Swal.fire('Error', 'No se pudo generar las etiquetas', 'error');
+                },
+                complete: function () {
+                    hideLoader();
+                }
+            });
+        }
+
+        function printOrder(noOrden, ptr) {
+            showLoader();
+
+            let ptrInfo = {
+                NoOrden: noOrden,
+                Ptr: ptr
+            };
+
+            $.ajax({
+                url: '@Url.Action("PrintOrder", "ImportationTracking")',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(ptrInfo),
+                success: function (response) {
+                    if (response.correct) {
+                        Swal.fire('Éxito', response.message || 'Impresión enviada correctamente', 'success');
+                        $('#impresoraModal').modal('hide');
+                        loadOrdersList();
+                    } else {
+                        Swal.fire('Error', response.message || 'Error al imprimir', 'error');
+                    }
+                },
+                error: function () {
+                    Swal.fire('Error', 'No se pudo enviar la impresión', 'error');
+                },
+                complete: function () {
+                    hideLoader();
+                }
+            });
+        }
+    </script>
+}

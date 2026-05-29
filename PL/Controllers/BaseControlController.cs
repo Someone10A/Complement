@@ -31,6 +31,27 @@ namespace PL.Controllers
         }
 
         [HttpGet]
+        public IActionResult BaseControlInternet()
+        {
+            var usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            string cod_pto = HttpContext.Session.GetString("pto_alm");
+
+            var result = BL.BaseControl.BaseControl.GetOpenRoutesInternet(cod_pto, mode);
+            if (!result.Correct)
+            {
+                ViewBag.Error = result.Message;
+                return View("BaseControlInternet", new List<ML.BaseControl.OutboundShipment>());
+            }
+
+            return View("BaseControlInternet", result.Object);
+        }
+
+        [HttpGet]
         public IActionResult BaseMasivo()
         {
             var usuId = HttpContext.Session.GetString("usu_id");

@@ -14,6 +14,7 @@
                     <th>Tienda</th>
                     <th>SCN</th>
                     <th>Transfer</th>
+                    <th>Intento</th>
                     <th>Última Fecha</th>
                     <th>Estatus</th>
                     <th class="text-center">Acción</th>
@@ -326,6 +327,7 @@
                             { data: 'tienda', defaultContent: '' },
                             { data: 'scn', defaultContent: '' },
                             { data: 'transfer', defaultContent: '' },
+                            { data: 'intento', defaultContent: '' },
                             { data: 'ultFecha', defaultContent: '' },
                             { data: 'estatus', defaultContent: '' },
                             {
@@ -608,8 +610,22 @@
 
         // Marcar Evento (Estado 3)
         $(document).on('click', '.btn-evento', function () {
-            const tienda = $(this).data('tienda');
-            const scn = $(this).data('scn');
+            // Obtener la fila completa desde DataTable
+            const row = $(this).closest('tr');
+            const table = $('#workTable').DataTable();
+            const rowData = table.row(row).data();
+
+            if (!rowData) {
+                Swal.fire('Error', 'No se pudo obtener la información de la fila', 'error');
+                return;
+            }
+
+            // Guardar datos de la fila para uso posterior
+            currentRowData = rowData;
+
+            const scn = rowData.scn;
+            const tienda = rowData.tienda;
+
             $('#eventScn').val(scn);
             $('#eventTienda').val(tienda);
             $('#eventModal').modal('show');
@@ -627,9 +643,8 @@
             confirmarEvento(scn, tienda, false);
         });
 
-                // Para Marcar Evento (Estado 3) - usando la fila actual
+        // Para Marcar Evento (Estado 3) - usando la fila actual
         function confirmarEvento(scn, tienda, entregado) {
-            // Usar currentRowData que ya guardaste
             if (!currentRowData) {
                 Swal.fire('Error', 'No se pudo obtener la información de la fila', 'error');
                 return;

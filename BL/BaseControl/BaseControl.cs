@@ -74,39 +74,73 @@ namespace BL.BaseControl
                 {
                     connection.Open();
 
-                    //string query1 = $@"SELECT TRIM(car_sal) AS car_sal,
-                    //                        TO_CHAR(fec_car) AS fec_car,
-                    //                        pto_alm
-                    //                    FROM ora_ruta
-                    //                    WHERE pto_alm = {cod_pto}
-                    //                    AND estatus = 0
-                    //                    AND DATE(fec_car) > '03102025'
-                    //                    AND car_sal NOT IN (SELECT car_sal FROM ora_asignacion_operador WHERE pto_alm = {cod_pto})
-                    //                    GROUP BY 1,2,3
-                    //                    ORDER BY 2
-                    //                    ";
+                    string query = $@"SELECT
+                                            TRIM(car_sal) AS car_sal,
+                                            TO_CHAR(fec_car) AS fec_car,
+                                            pto_alm,
+	                                        CASE 
+                                                WHEN SUM(CASE WHEN estatus = 1 THEN 1 ELSE 0 END) = 0 THEN 0
+                                                ELSE 1
+                                            END AS parcial,
+                                            ROUND(
+                                                (SUM(CASE WHEN estatus = 1 THEN 1 ELSE 0 END) * 100.0) / COUNT(*),
+                                                2
+                                            ) AS porcentaje_marcado
+                                        FROM ora_ruta
+                                        WHERE pto_alm = {cod_pto}
+                                          AND DATE(fec_car) > '03102025'
+                                          AND car_sal NOT LIKE 'INTER%'  
+                                          AND car_sal NOT IN (
+                                                SELECT car_sal
+                                                FROM ora_asignacion_operador
+                                                WHERE pto_alm = {cod_pto}
+                                          )
+                                        GROUP BY car_sal, fec_car, pto_alm
+                                        HAVING
+                                            SUM(CASE WHEN estatus = 1 THEN 1 ELSE 0 END) < COUNT(*)
+                                        ORDER BY fec_car;
+                                        ";
 
-                    //string query2 = $@"SELECT
-                    //                    TRIM(car_sal) AS car_sal,
-                    //                    TO_CHAR(fec_car) AS fec_car,
-                    //                    pto_alm,
-                    //                    CASE
-                    //                        WHEN SUM(CASE WHEN estatus = 0 THEN 1 ELSE 0 END) = COUNT(*) THEN 0
-                    //                        ELSE 1
-                    //                    END AS tipo_ruta
-                    //                FROM ora_ruta
-                    //                WHERE pto_alm = {cod_pto}
-                    //                  AND DATE(fec_car) > '03102025'
-                    //                  AND car_sal NOT IN (
-                    //                        SELECT car_sal
-                    //                        FROM ora_asignacion_operador
-                    //                        WHERE pto_alm = {cod_pto}
-                    //                  )
-                    //                GROUP BY car_sal, fec_car, pto_alm
-                    //                HAVING
-                    //                    SUM(CASE WHEN estatus = 0 THEN 1 ELSE 0 END) > 0
-                    //                ORDER BY fec_car;
-                    //                    ";
+                    List<ML.BaseControl.OutboundShipment> outboundShipmentList = new List<ML.BaseControl.OutboundShipment>();
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                ML.BaseControl.OutboundShipment outboundShipment = new ML.BaseControl.OutboundShipment();
+
+                                outboundShipment.car_sal = reader.GetString(0);
+                                outboundShipment.fec_car = reader.GetString(1);
+                                outboundShipment.pto_alm = reader.GetInt32(2).ToString();
+                                outboundShipment.parcial = reader.GetInt32(3) > 0 ? true : false;
+                                outboundShipment.porcentaje = reader.GetInt32(4).ToString();
+
+                                outboundShipmentList.Add(outboundShipment);
+                            }
+                        }
+                    }
+
+                    result.Correct = true;
+                    result.Object = outboundShipmentList;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Se obtuvo un error al consultar las cargas pendientes. {ex.Message}";
+            }
+            return result;
+        }
+        public static ML.Result GetOpenRoutesInternet(string cod_pto, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
 
                     string query = $@"SELECT
                                             TRIM(car_sal) AS car_sal,
@@ -123,6 +157,7 @@ namespace BL.BaseControl
                                         FROM ora_ruta
                                         WHERE pto_alm = {cod_pto}
                                           AND DATE(fec_car) > '03102025'
+                                          AND car_sal LIKE 'INTER%'  
                                           AND car_sal NOT IN (
                                                 SELECT car_sal
                                                 FROM ora_asignacion_operador

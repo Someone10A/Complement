@@ -24,6 +24,7 @@ namespace BL.Canguro
                                         A.tda_venta,
                                         A.sales_check, 
                                         A.no_transf,
+                                        CASE WHEN (K.intento IS NULL) THEN '1' ELSE TO_CHAR(K.intento) END AS intento,
                                         CASE WHEN (K.fec_act IS NULL)
                                                 THEN 'NA'
                                                 ELSE TO_CHAR(K.fec_act)
@@ -75,9 +76,10 @@ namespace BL.Canguro
                                 canguroInfo.Tienda = reader.GetString(1);
                                 canguroInfo.Scn = reader.GetString(2);
                                 canguroInfo.Transfer = reader.GetString(3);
-                                canguroInfo.UltFecha = reader.GetString(4);
-                                canguroInfo.IdEstatus = reader.GetString(5).Trim();
-                                canguroInfo.Estatus = reader.GetString(6).Trim();
+                                canguroInfo.Intento = reader.GetString(4);
+                                canguroInfo.UltFecha = reader.GetString(5);
+                                canguroInfo.IdEstatus = reader.GetString(6).Trim();
+                                canguroInfo.Estatus = reader.GetString(7).Trim();
 
                                 canguroInfoList.Add(canguroInfo);
                             }
@@ -207,7 +209,6 @@ namespace BL.Canguro
             return result;
         }
 
-
         public static ML.Result AcceptCanguro( ML.Canguro.CanguroInfo canguro, string user, string mode)
         {
             ML.Result result = new ML.Result();
@@ -241,7 +242,6 @@ namespace BL.Canguro
             return result;
         }
 
-
         public static ML.Result Maintenance(ML.Canguro.Maintenance maintenance, string user, string mode)
         {
             ML.Result result = new ML.Result();
@@ -269,7 +269,6 @@ namespace BL.Canguro
             }
             return result;
         }
-
 
         private static void UpdateLgaEnt(OdbcConnection connection, ML.Canguro.Maintenance maintenance, string user)
         {
@@ -374,7 +373,6 @@ namespace BL.Canguro
                                            latitud = {maintenance.Header.Latitud},
                                             fec_act = CURRENT,
                                             estatus = 1,
-                                            intento = 1,
                                             usu_id = {user}
                                        WHERE cod_empresa = 1 
                                        AND tda_venta = {maintenance.Canguro.Tienda}
@@ -394,18 +392,28 @@ namespace BL.Canguro
             }
         }
 
-        public static ML.Result Delivered(ML.Canguro.CanguroInfo canguro, bool isDelivered, string mode)
+        public static ML.Result Delivered(ML.Canguro.Delivered delivered, string user, string mode)
         {
             ML.Result result = new ML.Result();
             try
             {
-                if (isDelivered)
+                if (delivered.IsDelivered)
                 {
-
+                    ML.Result resultIsDelivered = IsDelivered(delivered.CanguroInfo, user, mode);
+                    if (!resultIsDelivered.Correct)
+                    {
+                        throw new Exception($@"{resultIsDelivered.Message}");
+                    }
+                    result.Message = resultIsDelivered.Message;
                 }
                 else
                 {
-
+                    ML.Result resultIsNotDelivered = IsNotDelivered(delivered.CanguroInfo, user, mode);
+                    if (!resultIsNotDelivered.Correct)
+                    {
+                        throw new Exception($@"{resultIsNotDelivered.Message}");
+                    }
+                    result.Message = resultIsNotDelivered.Message;
                 }
 
                 result.Correct = true;
@@ -414,12 +422,115 @@ namespace BL.Canguro
             {
                 result.Correct = false;
                 result.Ex = ex;
-                result.Message = $@"Error al obtener lista de trabajo: {ex.Message}";
+                result.Message = $@"Error al marcar el proceso {ex.Message}";
             }
             return result;
         }
+        private static ML.Result IsDelivered(ML.Canguro.CanguroInfo canguroInfo, string user, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using(OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
 
+                    string queryLga = $@"UPDATE
+                                             dblga@lga_prod:lgaetiqeta B
+                                        SET
+                                            st_etiqueta = 10,
+                                            usuario_cancela = 79,
+                                            f_cancelacion = CURRENT
+                                        WHERE EXISTS (SELECT 1
+                                                FROM dblga@lga_prod:lgadventa2 A
+                                                WHERE A.cod_empresa = 1
+                                                AND A.tip_entrega = 4
+                                                AND A.cd_id = {canguroInfo.Almacen}
+                                                AND A.sales_check = '{canguroInfo.Scn}'
+                                                AND B.cod_empresa = A.cod_empresa
+                                                AND B.cd_id = A.cd_id
+                                                AND B.no_etiqueta = A.no_etiqueta
+                                                AND B.tip_etiqueta = 1)
+                                        ";
 
+                    using (OdbcCommand cmd = new OdbcCommand(queryLga, connection))
+                    {
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected < 1)
+                        {
+                            throw new Exception($@"Ningun registro sin alterar logistica");
+                        }
+                    }
 
+                    string query = $@"UPDATE ora_canguro 
+                                        SET estatus = 4, 
+                                        usu_id = {user}
+                                       WHERE cod_empresa = 1,
+                                        AND cd_id = {canguroInfo.Almacen}
+                                        AND tda_venta = {canguroInfo.Tienda}
+                                        AND sales_check = '{canguroInfo.Scn}'
+                                        AND no_transf = {canguroInfo.Transfer}
+                                        ";
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected < 1)
+                        {
+                            throw new Exception($@"Ningun registro sin alterar");
+                        }
+                    }
+                }
+                result.Correct = true;
+                result.Message = $@"Se marcó como entregado el SCN canguro {canguroInfo.Scn} exitosamente";
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Ex = ex;
+                result.Message = $@"Error al marcar como entregado {canguroInfo.Scn}: {ex.Message}";
+            }
+            return result;
+        }
+        private static ML.Result IsNotDelivered(ML.Canguro.CanguroInfo canguroInfo, string user, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string query = $@"UPDATE ora_canguro 
+                                        SET estatus = 2, 
+                                        intento = intento + 1 
+                                        usu_id = {user}
+                                       WHERE cod_empresa = 1,
+                                        AND cd_id = {canguroInfo.Almacen}
+                                        AND tda_venta = {canguroInfo.Tienda}
+                                        AND sales_check = '{canguroInfo.Scn}'
+                                        AND no_transf = {canguroInfo.Transfer}
+                                        ";
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        int rowsAffected = cmd.ExecuteNonQuery();
+                        if (rowsAffected < 1 )
+                        {
+                            throw new Exception($@"Ningun registro sin alterar");
+                        }
+                    }
+                }
+                result.Correct = true;
+                result.Message = $@"Se marcó como no entregado el SCN canguro {canguroInfo.Scn}, se prepara para nuevo ciclo";
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Ex = ex;
+                result.Message = $@"Error al marcar como no entregado {canguroInfo.Scn}: {ex.Message}";
+            }
+            return result;
+        }
     }
 }

@@ -141,10 +141,9 @@ namespace PL.Controllers
             }
 
 
-            ML.Result result = BL.Canguro.Canguro.Delivered(Delivered,  mode);
+            ML.Result result = BL.Canguro.Canguro.Delivered(Delivered, usuId, mode);
 
-            //Logica
-
+            
             return Json(new
             {
                 correct = result.Correct,

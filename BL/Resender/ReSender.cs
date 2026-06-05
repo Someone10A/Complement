@@ -21,10 +21,12 @@ namespace BL.Resender
             ML.Result result = new ML.Result();
             try
             {
-                System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+                //System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+                System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
                 using (SqlConnection connection = new SqlConnection())
                 {
+                    
                     connection.ConnectionString = DL.Connection.GetConnectionStringSig(mode);
                     connection.Open();
 
@@ -130,7 +132,7 @@ namespace BL.Resender
             Result result = new Result();
             try
             {
-                System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+                System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
                 using (SqlConnection connection = new SqlConnection())
                 {
@@ -258,7 +260,7 @@ namespace BL.Resender
             Result result = new Result();
             try
             {
-                System.Net.ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls;
+                System.Net.ServicePointManager.SecurityProtocol = System.Net.SecurityProtocolType.Tls12;
 
                 using (SqlConnection connection = new SqlConnection())
                 {

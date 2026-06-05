@@ -1,4 +1,4 @@
-﻿using DocumentFormat.OpenXml.Wordprocessing;
+﻿    using DocumentFormat.OpenXml.Wordprocessing;
 using ML.ImportationTracking;
 using System;
 using System.Collections.Generic;
@@ -268,7 +268,7 @@ namespace BL.ImportationTracking
                     seq++;
 
                     eti.NoEtiqueta = $@"{consecutivos.Prefijo}{consecutivos.Consecutivo.ToString("D10")}";
-                    eti.Bulto = $@"{seq.ToString("D3")}/{seq.ToString("D3")}";
+                    eti.Bulto = $@"{seq.ToString("D3")}/{bultos.ToString("D3")}";
 
                     etiquetas.Add(eti);
                 }
@@ -372,13 +372,12 @@ namespace BL.ImportationTracking
         }
 
 
-        
-        public static ML.Result PrintOrder(ML.ImportationTracking.PtrInfo ptrInfo, string mode)
+        public static ML.Result PrintOrder(ML.ImportationTracking.PtrInfo ptrInfo, bool reprint, string mode)
         {
             ML.Result resultPrintOrder = new ML.Result();
             try
             {
-                ML.Result resultGetDetails = GetDetails(ptrInfo.NoOrden, mode);
+                ML.Result resultGetDetails = GetDetails(ptrInfo.NoOrden, reprint, mode);
                 if (!resultGetDetails.Correct)
                 {
                     throw new Exception(resultGetDetails.Message);
@@ -434,7 +433,7 @@ namespace BL.ImportationTracking
             return resultPrintOrder;
         }
         //Private lee datos para imprimir
-        private static ML.Result GetDetails(string noOrden, string mode)
+        private static ML.Result GetDetails(string noOrden, bool reprint, string mode)
         {
             ML.Result result = new ML.Result();
             try
@@ -442,6 +441,7 @@ namespace BL.ImportationTracking
                 using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
                 {
                     connection.Open();
+                    string stat = reprint ? "1" : "0";
 
                     string query = $@"SELECT 
 	                                    CASE WHEN (D.no_pedimento IS NULL) THEN 'No registrado' ELSE TRIM(D.no_pedimento) END AS pedimento,
@@ -454,7 +454,7 @@ namespace BL.ImportationTracking
                                     FROM hermes_imp_control X,hermes_imp_detail Y,
 	                                    dblga@lga_prod:lgaindorco A,dblga@lga_prod:lgahorco B,dblga@lga_prod:lgaprovee C, OUTER dblga@lga_prod:lgafolio_pzas D
                                     WHERE X.no_orden = {noOrden}
-                                    AND X.estatus IN (0)
+                                    AND X.estatus IN ({stat})
                                     AND Y.no_orden = X.no_orden
                                     AND A.cod_empresa = 1
                                     AND A.no_orden = X.no_orden
@@ -553,13 +553,13 @@ namespace BL.ImportationTracking
         private static ML.Result CreateLPZ(List<string[]> linesDetail, string noOrden, string mode)
         {
             ML.Result result = new ML.Result();
-
+            string pathSalida = DL.Directory.GetOutputPathLPZ(mode);
             try
             {
                 string dateTime = DateTime.Now.ToString("yyyyMMddHHmm");
                 string fileName = $@"Eti_{noOrden}_{dateTime}.lpz";
                 string path = System.IO.Path.Combine(
-                                            DL.Directory.GetOutputPathLPZ(mode),
+                                            pathSalida,
                                             fileName
                                         );
 
@@ -592,7 +592,7 @@ namespace BL.ImportationTracking
             catch (Exception ex)
             {
                 result.Correct = false;
-                result.Message = "Error al armar el lpz " + ex.Message;
+                result.Message = $"Error al armar el lpz path {pathSalida} " + ex.Message;
                 result.Ex = ex;
             }
             return result;
@@ -717,6 +717,154 @@ namespace BL.ImportationTracking
             {
                 result.Correct = false;
                 result.Message = $@"Error al ejecutar impresión {ex.Message}";
+            }
+            return result;
+        }
+
+        public static ML.Result RePrintOrder(ML.ImportationTracking.PtrInfo ptrInfo, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    //PASO 1
+                    string queryExist = $@"SELECT COUNT(*)
+                                    FROM hermes_imp_control
+                                    WHERE estatus = 1
+                                    AND no_orden = {ptrInfo.NoOrden}";
+
+                    bool exist = false;
+
+                    using (OdbcCommand cmd = new OdbcCommand(queryExist, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                exist = reader.GetInt32(0) > 0 ? true : false; 
+                            }
+                        }
+                    }
+
+                    if (!exist)
+                    {
+                        throw new Exception($@"La orden {ptrInfo.NoOrden} no está apta para reimpresion");
+                    }
+
+                    string query = $@"SELECT A.no_orden,
+		                                    CASE WHEN (D.no_pedimento IS NULL) THEN 'No registrado' ELSE TRIM(D.no_pedimento) END AS pedimento,
+		                                    A.cd_id,
+		                                    B.division,
+		                                    B.cv_proveedor,
+		                                    TRIM(C.razon_social) AS razon_social,
+		                                    A.ind_pvta
+                                    FROM dblga@lga_prod:lgaindorco A,dblga@lga_prod:lgahorco B,dblga@lga_prod:lgaprovee C, OUTER dblga@lga_prod:lgafolio_pzas D
+                                    WHERE A.cod_empresa = 1
+                                    AND A.no_orden = {ptrInfo.NoOrden}
+                                    AND B.cod_empresa = A.cod_empresa
+                                    AND B.pto_emisor = 999
+                                    AND B.no_orden = A.no_orden
+                                    AND C.cod_empresa  = B.cod_empresa
+                                    AND C.cv_proveedor = B.cv_proveedor
+                                    AND D.cod_empresa = A.cod_empresa
+                                    AND D.no_folio = A.no_orden
+                                    AND D.usuario = 500";
+
+                    ML.ImportationTracking.OrdenCompra orden = new ML.ImportationTracking.OrdenCompra();
+
+                    using (OdbcCommand cmd = new OdbcCommand(query, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            if (reader.Read())
+                            {
+                                orden.NoOrden = reader.GetString(0);
+                                orden.Pedimento = reader.GetString(1);
+                                orden.AlmacenDestino = reader.GetString(2);
+                                orden.Division = reader.GetString(3);
+                                orden.IdProveedor = reader.GetString(4);
+                                orden.RazonSocial = reader.GetString(5);
+                                orden.PasoE = reader.GetString(6) == "X" ? true : false; //Bandera importante si es false, no puede mandar a llamar Generate()
+                                
+                                result.Message = $@"{ptrInfo.NoOrden} encontrada";
+                            }
+                            else
+                            {
+                                orden.Find = false;
+                                result.Message = $@"No se encontro la OC {ptrInfo.NoOrden} apta, sin pasos o ya impresa";
+                            }
+                        }
+                    }
+
+                    if (!orden.PasoE)
+                    {
+                        throw new Exception($@"La orden {ptrInfo.NoOrden} no está apta para reimpresion por paso E");
+                    }
+
+                    ML.Result resultPrintOrder = PrintOrder(ptrInfo, true, mode);
+                    if (!resultPrintOrder.Correct)
+                    {
+                        throw new Exception($@"{resultPrintOrder.Message}");
+                    }
+
+                    result.Correct = true;
+                    result.Message = $@"Re impresion correcta";
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error en reimprimir {ex.Message}";
+            }
+            return result;
+        }
+
+        public static ML.Result GetPrinters(string ptoAlm, string mode)
+        {
+            ML.Result result = new ML.Result();
+            try
+            {
+                using (OdbcConnection connection = new OdbcConnection(DL.Connection.GetConnectionStringGen(mode)))
+                {
+                    connection.Open();
+
+                    string queryExist = $@"SELECT imp_nombre
+                                            FROM dblga@lga_prod:lgaimpresora
+                                            WHERE imp_status = 1
+                                            AND cv_almacen = {ptoAlm}
+                                            ";
+
+                    var printers = new List<object>();
+
+                    using (OdbcCommand cmd = new OdbcCommand(queryExist, connection))
+                    {
+                        using (OdbcDataReader reader = cmd.ExecuteReader())
+                        {
+                            while (reader.Read())
+                            {
+                                string ptr = reader.GetString(0);
+
+                                printers.Add(new
+                                {
+                                    value = ptr,
+                                    text = ptr,
+                                    description = ptr
+                                });
+                            }
+                        }
+                    }
+
+                    result.Correct = true;
+                    result.Object = printers;
+                }
+            }
+            catch (Exception ex)
+            {
+                result.Correct = false;
+                result.Message = $@"Error en jalar etiquetas {ex.Message}";
             }
             return result;
         }

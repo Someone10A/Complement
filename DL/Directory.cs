@@ -28,7 +28,8 @@ namespace DL
             }
             catch (Exception ex)
             {
-                return null;
+                return null;    
+                Console.WriteLine($@"LPZPATH"+ex.Message);
             }
         }
     }

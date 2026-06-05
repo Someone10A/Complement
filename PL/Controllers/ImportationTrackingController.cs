@@ -1,5 +1,6 @@
 ﻿using DocumentFormat.OpenXml.Wordprocessing;
 using Microsoft.AspNetCore.Mvc;
+using ML.ImportationTracking;
 
 namespace PL.Controllers
 {
@@ -82,12 +83,8 @@ namespace PL.Controllers
             {
                 return RedirectToAction("Login", "Login");
             }
-            /*LOS UNICOS VALORES DE ptrInfo.Ptr son 
-             ptrdort1
-            ptr021e2
-                limitar al usuario que solo elija una de esas 2 en un dropDownList*/
 
-            ML.Result result = BL.ImportationTracking.ImportationTracking.PrintOrder(ptrInfo, mode);
+            ML.Result result = BL.ImportationTracking.ImportationTracking.PrintOrder(ptrInfo, false, mode);
 
             return Json(new
             {
@@ -96,5 +93,42 @@ namespace PL.Controllers
             });
         }
 
+        [HttpPost]
+        public IActionResult RePrintOrder([FromBody] ML.ImportationTracking.PtrInfo ptrInfo)
+        {
+            string usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+
+            ML.Result result = BL.ImportationTracking.ImportationTracking.RePrintOrder(ptrInfo, mode);
+
+            return Json(new
+            {
+                correct = result.Correct,
+                message = result.Message
+            });
+        }
+
+
+        [HttpGet]
+        public IActionResult GetPrinters()
+        {
+            string usuId = HttpContext.Session.GetString("usu_id");
+            if (string.IsNullOrEmpty(usuId))
+            {
+                return RedirectToAction("Login", "Login");
+            }
+            string codPto = HttpContext.Session.GetString("pto_alm");
+
+            ML.Result result = BL.ImportationTracking.ImportationTracking.GetPrinters(codPto, mode);
+
+            return Json(new
+            {
+                correct = result.Correct,
+                data = result.Object
+            });
+        }
     }
 }

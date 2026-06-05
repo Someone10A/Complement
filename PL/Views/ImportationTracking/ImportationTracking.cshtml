@@ -9,10 +9,13 @@
 
     <div class="mb-3">
         <button type="button" id="btnNuevaOrden" class="btn btn-primary">
-            <i class="fas fa-plus"></i> Nueva Orden
+            <i class="bi bi-plus-circle"></i> Nueva Orden
+        </button>
+        <button type="button" id="btnReimprimir" class="btn btn-warning ms-2">
+            <i class="bi bi-printer-fill"></i> Reimprimir
         </button>
         <button type="button" id="btnRefrescar" class="btn btn-secondary ms-2">
-            <i class="fas fa-sync-alt"></i> Refrescar
+            <i class="bi bi-arrow-repeat"></i> Refrescar
         </button>
     </div>
 
@@ -121,14 +124,45 @@
                 <div class="mb-3">
                     <label for="selectImpresora" class="form-label">Impresora:</label>
                     <select class="form-select" id="selectImpresora">
-                        <option value="ptrdort1">ptrdort1</option>
-                        <option value="ptr021e2">ptr021e2</option>
+                        @* <option value="ptrdort1">ptrdort1</option>
+                        <option value="ptr021e2">ptr021e2</option> *@
                     </select>
                 </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" id="btnConfirmarImpresion" class="btn btn-primary">Imprimir</button>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Modal Reimprimir Orden -->
+<div class="modal fade" id="reprintModal" tabindex="-1" aria-labelledby="reprintModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title" id="reprintModalLabel">
+                    <i class="bi bi-printer-fill me-2"></i>Reimprimir Orden
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="txtReprintOrden" class="form-label">Número de Orden (8 dígitos)</label>
+                    <input type="text" class="form-control" id="txtReprintOrden" maxlength="8" placeholder="Ejemplo: 12345678" />
+                    <div class="form-text">Ingrese el número de orden de compra a 8 dígitos.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="selectReprintImpresora" class="form-label">Impresora:</label>
+                    <select class="form-select" id="selectReprintImpresora">
+                        @* <option value="ptrdort1">ptrdort1</option>
+                        <option value="ptr021e2">ptr021e2</option> *@
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" id="btnConfirmarReimpresion" class="btn btn-warning">Reimprimir</button>
             </div>
         </div>
     </div>
@@ -463,5 +497,110 @@
                 }
             });
         }
+
+
+
+
+                // Evento para abrir modal de reimpresión
+        $('#btnReimprimir').on('click', function () {
+            $('#txtReprintOrden').val('');
+            $('#selectReprintImpresora').val('ptrdort1');
+            $('#reprintModal').modal('show');
+        });
+
+        // Evento para confirmar reimpresión
+        $('#btnConfirmarReimpresion').on('click', function () {
+            let noOrden = $('#txtReprintOrden').val().trim();
+
+            if (!noOrden) {
+                Swal.fire('Error', 'Ingrese un número de orden', 'warning');
+                return;
+            }
+
+            if (!/^\d{8}$/.test(noOrden)) {
+                Swal.fire('Error', 'El número de orden debe tener 8 dígitos', 'warning');
+                return;
+            }
+
+            let ptr = $('#selectReprintImpresora').val();
+            reprintOrder(noOrden, ptr);
+        });
+
+        // Función para reimprimir
+        function reprintOrder(noOrden, ptr) {
+            showLoader();
+
+            let ptrInfo = {
+                noOrden: noOrden,
+                ptr: ptr
+            };
+
+            $.ajax({
+                url: '@Url.Action("RePrintOrder", "ImportationTracking")',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(ptrInfo),
+                success: function (response) {
+                    if (response.correct) {
+                        Swal.fire('Éxito', response.message, 'success');
+                        $('#reprintModal').modal('hide');
+                        // Opcional: refrescar la tabla si quieres mostrar algún cambio
+                        loadOrdersList();
+                    } else {
+                        Swal.fire('Error', response.message, 'error');
+                    }
+                },
+                error: function () {
+                    Swal.fire('Error', 'No se pudo reimprimir la orden', 'error');
+                },
+                complete: function () {
+                    hideLoader();
+                }
+            });
+        }
+
+        // Función para cargar impresoras en un select específico
+        function cargarImpresoras(selectElementId) {
+            $.ajax({
+                url: '/ImportationTracking/GetPrinters', 
+                type: 'GET',
+                dataType: 'json',
+                success: function(response) {
+                    if (response.correct && response.data) {
+                        var select = $('#' + selectElementId);
+                        select.empty(); // Limpiar opciones existentes
+
+                        // Agregar las opciones
+                        $.each(response.data, function(index, printer) {
+                            select.append($('<option>', {
+                                value: printer.value,
+                                text: printer.text
+                            }));
+                        });
+                    } else {
+                        console.error('Error al cargar impresoras:', response);
+                        mostrarError('No se pudieron cargar las impresoras');
+                    }
+                },
+                error: function(xhr, status, error) {
+                    console.error('Error en la petición:', error);
+                    mostrarError('Error de conexión al cargar impresoras');
+                }
+            });
+        }
+
+        function mostrarError(mensaje) {
+            
+            alert(mensaje);
+        }
+
+        $('#impresoraModal').on('show.bs.modal', function() {
+            cargarImpresoras('selectImpresora');
+        });
+
+        $('#reprintModal').on('show.bs.modal', function() {
+            cargarImpresoras('selectReprintImpresora');
+        });
+
     </script>
 }
